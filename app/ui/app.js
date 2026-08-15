@@ -1,5 +1,28 @@
 const $ = (id) => document.getElementById(id);
 let summary = null;
+let pickedFiles = [];
+
+function renderFiles() {
+  const list = $('fileList');
+  list.hidden = pickedFiles.length === 0;
+  list.innerHTML = '';
+  for (const f of pickedFiles) {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    const p = document.createElement('span');
+    p.className = 'path';
+    p.textContent = f;
+    p.title = f;
+    const x = document.createElement('button');
+    x.textContent = '×';
+    x.onclick = () => {
+      pickedFiles = pickedFiles.filter((v) => v !== f);
+      renderFiles();
+    };
+    chip.append(p, x);
+    list.appendChild(chip);
+  }
+}
 
 function logLine(type, text) {
   const div = document.createElement('div');
@@ -27,8 +50,8 @@ function hideError() {
 function collectParams() {
   return {
     project: $('project').value.trim(),
-    fromVer: $('fromVer').value.trim() || '1.20.1',
-    target: $('target').value.trim() || '26.3',
+    files: pickedFiles.length ? pickedFiles : null,
+    target: $('target').value.trim() || '26.2',
     env: $('env').value.trim() || null,
     provider: $('provider').value,
     model: $('model').value.trim(),
@@ -44,7 +67,6 @@ function collectParams() {
 async function init() {
   const s = await window.api.loadSettings();
   if (s.project) $('project').value = s.project;
-  if (s.fromVer) $('fromVer').value = s.fromVer;
   if (s.target) $('target').value = s.target;
   if (s.provider) $('provider').value = s.provider;
   if (s.model) $('model').value = s.model;
@@ -62,6 +84,16 @@ $('pick').onclick = async () => {
   if (p) $('project').value = p;
 };
 
+$('pickFiles').onclick = async () => {
+  const files = await window.api.pickFiles();
+  if (files && files.length) {
+    for (const f of files) {
+      if (!pickedFiles.includes(f)) pickedFiles.push(f);
+    }
+    renderFiles();
+  }
+};
+
 $('clear').onclick = () => {
   $('log').innerHTML = '';
   $('clear').disabled = true;
@@ -69,8 +101,8 @@ $('clear').onclick = () => {
 
 $('run').onclick = async () => {
   const params = collectParams();
-  if (!params.project) {
-    showError('請先選擇模組專案路徑');
+  if (!params.project && !(params.files && params.files.length)) {
+    showError('請選擇模組專案資料夾，或加入 Java 文件');
     return;
   }
   if (params.provider !== 'mock' && !params.apiKey) {

@@ -21,31 +21,37 @@
     <section class="card side">
       <h2>專案</h2>
       <div class="row">
-        <input id="project" placeholder="模組專案路徑" spellcheck="false">
-        <button class="btn ghost" id="pick">瀏覽…</button>
+        <input id="project" placeholder="模組專案資料夾路徑" spellcheck="false">
+        <button class="btn ghost" id="pick">選資料夾</button>
       </div>
-      <div class="grid3">
-        <label>來源版本<input id="fromVer" value="1.20.1"></label>
-        <label>目標版本<input id="target" value="26.3"></label>
+      <div class="files-row">
+        <span class="hint-text">或直接加入模組 Java 文件（不需完整專案）：</span>
+        <button class="btn ghost small" id="pickFiles">加入 Java 文件…</button>
+      </div>
+      <div class="file-list" id="fileList" hidden></div>
+      <div class="grid2">
+        <label>目標版本<input id="target" value="26.2"></label>
         <label>環境文檔<input id="env" placeholder="自動（mcenv/）"></label>
       </div>
 
-      <h2>模型</h2>
-      <div class="grid3">
-        <label>供應商
-          <select id="provider">
-            <option value="deepseek">DeepSeek</option>
-            <option value="openai">OpenAI</option>
-            <option value="ollama">Ollama（本地）</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="gemini">Google Gemini</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="mock">Mock（離線演示）</option>
-          </select>
-        </label>
-        <label>模型<input id="model" placeholder="留空＝供應商預設"></label>
-        <label>API Key<input id="apiKey" type="password" placeholder="僅存本機"></label>
-      </div>
+      <details class="settings">
+        <summary>設置（模型・API Key）</summary>
+        <div class="grid3">
+          <label>供應商
+            <select id="provider">
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai">OpenAI</option>
+              <option value="ollama">Ollama（本地）</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="mock">Mock（離線演示）</option>
+            </select>
+          </label>
+          <label>模型<input id="model" placeholder="留空＝供應商預設"></label>
+          <label>API Key<input id="apiKey" type="password" placeholder="僅存本機"></label>
+        </div>
+      </details>
 
       <h2>選項</h2>
       <div class="row opts">

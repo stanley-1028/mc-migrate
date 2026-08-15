@@ -7,8 +7,9 @@ import { runMigration } from './lib/core.mjs';
 
 const USAGE = `Minecraft 模組版本升級 AI 工具
 用法：node migrate.mjs <project> [選項]
+  或：node migrate.mjs --files <java檔...> [選項]   （直接遷移指定檔案，不需完整專案）
   --from-ver <版本>     來源版本（預設 1.20.1）
-  --target <版本>       目標版本（預設 26.3）
+  --target <版本>       目標版本（預設 26.2）
   --env <路徑>          環境文檔（預設 mcenv/<from>_to_<target>.md）
   --provider <名稱>     供應商：deepseek/openai/ollama/anthropic/gemini/openrouter/mock
   --model <名稱>        模型（覆蓋設定檔）
@@ -25,7 +26,7 @@ function parseCli() {
     allowPositionals: true,
     options: {
       'from-ver': { type: 'string', default: '1.20.1' },
-      target: { type: 'string', default: '26.3' },
+      target: { type: 'string', default: '26.2' },
       env: { type: 'string' },
       provider: { type: 'string' },
       model: { type: 'string' },
@@ -36,6 +37,7 @@ function parseCli() {
       force: { type: 'boolean', default: false },
       config: { type: 'string' },
       'skills-dir': { type: 'string' },
+      files: { type: 'string', multiple: true },
       help: { type: 'boolean', default: false },
     },
   });
@@ -43,7 +45,7 @@ function parseCli() {
     console.log(USAGE);
     process.exit(0);
   }
-  if (!positionals.length) {
+  if (!positionals.length && !(values.files && values.files.length)) {
     console.log(USAGE);
     process.exit(1);
   }
@@ -53,13 +55,14 @@ function parseCli() {
     console.error('錯誤：--max-iterations 需為正整數');
     process.exit(1);
   }
-  return { project: positionals[0], ...values, maxIterations };
+  return { project: positionals[0] || null, ...values, maxIterations };
 }
 
 const opts = parseCli();
 runMigration(
   {
     project: opts.project,
+    files: opts.files && opts.files.length ? opts.files : null,
     fromVer: opts['from-ver'],
     target: opts.target,
     env: opts.env,

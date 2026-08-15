@@ -17,6 +17,12 @@
 node migrate.mjs samples/example-mod --provider mock
 ```
 
+也可以跳過完整專案，直接遷移指定 Java 文件：
+
+```powershell
+node migrate.mjs --files 你的檔案/ItemClass.java 你的檔案/BlockClass.java --provider mock
+```
+
 使用真實模型（自備 Key，只存在本機環境變數）：
 
 ```powershell
@@ -59,7 +65,7 @@ node tests/test_migrate.mjs
 ## 限制（誠實聲明）
 
 - mock 供應商＝環境文檔對照表的文字替換，用於離線演示與流程驗證；真實遷移品質取決於模型與環境文檔品質。
-- 範本文檔中的「26.3」及其變更為虛構示例；實際使用請依官方 changelog 撰寫環境文檔。
+- 範本文檔中的「26.2」及其變更為虛構示例；實際使用請依官方 changelog 撰寫環境文檔。
 - 建構驗證為可選步驟：需專案有 `gradlew` 或提供 `--build-cmd`；無則跳過並在報告註明。
 - 大型專案逐檔呼叫 LLM，成本依檔案數線性成長；token 估算見報告。
 - 中文輸出請在 UTF-8 終端（如 Windows Terminal）執行。

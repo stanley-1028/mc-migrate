@@ -62,11 +62,11 @@ test('mock 端到端遷移：程式碼/建構/配方依環境文檔變更，語�
   assert.ok(java.includes('MC-MIGRATE-REVIEW'), '不確定變更已標註');
   assert.ok(!java.includes('Registry.register(Registries.ITEM'), '舊 API 已移除');
   const props = read(path.join(mod, PROPS));
-  assert.ok(props.includes('minecraft_version=26.3'), 'minecraft 版本');
-  assert.ok(props.includes('yarn_mappings=26.3+build.1'), 'mappings 版本');
+  assert.ok(props.includes('minecraft_version=26.2'), 'minecraft 版本');
+  assert.ok(props.includes('yarn_mappings=26.2+build.1'), 'mappings 版本');
   const fmj = JSON.parse(read(path.join(mod, FMJ)));
   assert.equal(fmj.schemaVersion, 2, 'schemaVersion');
-  assert.equal(fmj.depends.minecraft, '>=26.3', 'minecraft 依賴');
+  assert.equal(fmj.depends.minecraft, '>=26.2', 'minecraft 依賴');
   assert.equal(fmj.depends.java, '>=21', 'java 依賴');
   const recipe = JSON.parse(read(path.join(mod, RECIPE)));
   assert.deepEqual(recipe.result, { item: 'minecraft:cobblestone' }, '配方格式遷移');
@@ -139,7 +139,7 @@ test('git 安全：在新分支執行；工作目錄不乾淨時中止', (t) => 
   g(['commit', '-qm', 'init']);
   const r = run([mod, '--provider', 'mock']);
   assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.equal(g(['branch', '--show-current']).stdout.trim(), 'mc-migrate/26.3', '遷移在新分支執行');
+  assert.equal(g(['branch', '--show-current']).stdout.trim(), 'mc-migrate/26.2', '遷移在新分支執行');
   assert.ok(read(path.join(mod, JAVA)).includes('Registry.registerItem('), '分支上已完成遷移');
 
   const mod2 = freshMod();
@@ -153,6 +153,25 @@ test('git 安全：在新分支執行；工作目錄不乾淨時中止', (t) => 
   const r2 = run([mod2, '--provider', 'mock']);
   assert.notEqual(r2.status, 0, '不乾淨時中止');
   assert.ok(r2.stderr.includes('不乾淨'), r2.stderr);
+});
+
+test('--files 直接遷移指定的 Java 文件', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-files-test-'));
+  const a = path.join(dir, 'ItemClass.java');
+  const b = path.join(dir, 'CleanClass.java');
+  fs.writeFileSync(
+    a,
+    'package com.example;\n\nimport net.minecraft.item.Item;\n\npublic class ItemClass {\n    public static final Item X = new Item(new Item.Settings());\n}\n',
+    'utf8'
+  );
+  const originalB = 'package com.example;\n\npublic class CleanClass {\n}\n';
+  fs.writeFileSync(b, originalB, 'utf8');
+  const r = run(['--files', a, b, '--provider', 'mock']);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(read(a).includes('Item.of(new Item.Props())'), '指定檔案已遷移');
+  assert.equal(read(b), originalB, '未受影響的檔案保持原樣');
+  assert.ok(fs.existsSync(path.join(dir, '.mc-migrate', 'MIGRATION_REPORT.md')), '報告產出');
+  assert.ok(fs.existsSync(path.join(dir, '.mc-migrate', 'backup', 'ItemClass.java')), '備份產出');
 });
 
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {

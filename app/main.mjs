@@ -65,6 +65,14 @@ ipcMain.handle('folder:pick', async () => {
   return r.canceled ? null : r.filePaths[0];
 });
 
+ipcMain.handle('file:pick', async () => {
+  const r = await dialog.showOpenDialog(win, {
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Java / Kotlin', extensions: ['java', 'kt'] }],
+  });
+  return r.canceled ? [] : r.filePaths;
+});
+
 ipcMain.handle('folder:open', async (e, p) => {
   if (p) await shell.openPath(p);
 });
@@ -73,6 +81,7 @@ ipcMain.handle('run', async (e, params) => {
   if (running) return { ok: false, error: '已有遷移任務執行中' };
   running = true;
   try {
+    params.fromVer = '1.20.1';
     saveSettings(params);
     const send = (type, text) => {
       if (win && !win.isDestroyed()) win.webContents.send('progress', { type, text });
