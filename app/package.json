@@ -1,0 +1,33 @@
+{
+  "name": "mc-migrate-app",
+  "version": "1.0.0",
+  "description": "Minecraft 模組版本升級 AI 工具（桌面版）",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "node build.mjs && electron .",
+    "dist": "node build.mjs && electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.mcmigrate.app",
+    "productName": "MC-Migrate",
+    "artifactName": "MC-Migrate.exe",
+    "directories": { "output": "dist" },
+    "files": [
+      "main.mjs",
+      "preload.cjs",
+      "ui/**/*",
+      "lib/**/*",
+      "mcenv/**/*",
+      "skills/**/*",
+      "package.json"
+    ],
+    "win": { "target": "portable", "icon": "icon.ico" },
+    "portable": { "artifactName": "MC-Migrate.exe" },
+    "electronLanguages": ["zh-TW", "en-US"]
+  }
+}

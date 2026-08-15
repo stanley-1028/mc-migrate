@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>MC-Migrate</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">MC</div>
+      <div>
+        <h1>MC-Migrate</h1>
+        <p>Minecraft 模組版本升級 AI 工具</p>
+      </div>
+    </div>
+    <div class="status-chip" id="status"><span class="dot"></span><span id="status-text">待命</span></div>
+  </header>
+
+  <main>
+    <section class="card side">
+      <h2>專案</h2>
+      <div class="row">
+        <input id="project" placeholder="模組專案路徑" spellcheck="false">
+        <button class="btn ghost" id="pick">瀏覽…</button>
+      </div>
+      <div class="grid3">
+        <label>來源版本<input id="fromVer" value="1.20.1"></label>
+        <label>目標版本<input id="target" value="26.3"></label>
+        <label>環境文檔<input id="env" placeholder="自動（mcenv/）"></label>
+      </div>
+
+      <h2>模型</h2>
+      <div class="grid3">
+        <label>供應商
+          <select id="provider">
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+            <option value="ollama">Ollama（本地）</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="mock">Mock（離線演示）</option>
+          </select>
+        </label>
+        <label>模型<input id="model" placeholder="留空＝供應商預設"></label>
+        <label>API Key<input id="apiKey" type="password" placeholder="僅存本機"></label>
+      </div>
+
+      <h2>選項</h2>
+      <div class="row opts">
+        <label class="num">最大修正次數<input id="maxIterations" type="number" min="1" max="20" value="5"></label>
+        <label class="grow">建構指令<input id="buildCmd" placeholder="留空＝自動偵測 gradlew"></label>
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="dryRun"><span>僅預覽（dry-run，不寫檔案）</span></label>
+        <label class="check"><input type="checkbox" id="noBuild"><span>跳過建構驗證</span></label>
+        <label class="check"><input type="checkbox" id="force"><span>強制（git 不乾淨仍繼續）</span></label>
+      </div>
+      <button class="btn primary" id="run">開始遷移</button>
+      <div class="error" id="error" hidden></div>
+    </section>
+
+    <section class="card grow">
+      <div class="out-head">
+        <h2>進度</h2>
+        <button class="btn ghost small" id="clear" disabled>清除</button>
+      </div>
+      <div class="log" id="log">
+        <div class="hint">選擇專案後點擊「開始遷移」。沒有 API Key 可先選 Mock 供應商離線體驗。</div>
+      </div>
+      <div class="actions" id="actions" hidden>
+        <button class="btn ghost" id="openDir">開啟專案資料夾</button>
+        <button class="btn ghost" id="saveReport" hidden>另存報告</button>
+        <button class="btn ghost" id="savePatch" hidden>另存補丁</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>MC-Migrate v1.0 · API Key 僅存本機、不隨專案提交 · 遷移前請確認 git 狀態</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

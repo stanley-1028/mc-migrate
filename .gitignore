@@ -1,0 +1,8 @@
+migrate.json
+*.log
+node_modules/
+app/dist/
+app/lib/
+app/mcenv/
+app/skills/
+.mc-migrate/

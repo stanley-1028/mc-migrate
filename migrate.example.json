@@ -1,0 +1,19 @@
+// 設定檔範例：複製為 migrate.json 後使用（migrate.json 已被 .gitignore 排除，不會進 git）。
+// API Key 亦可改用環境變數 MC_MIGRATE_API_KEY（兩者都有時以環境變數優先）。
+{
+  "provider": "deepseek",
+  "model": "",
+  "api_key": "",
+  "max_iterations": 5,
+  "token_budget_chars": 24000,
+  "build_cmd": "",
+  "providers": {
+    "openai": { "base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini" },
+    "deepseek": { "base_url": "https://api.deepseek.com/v1", "model": "deepseek-chat" },
+    "ollama": { "base_url": "http://localhost:11434/v1", "model": "llama3.1" },
+    "openrouter": { "base_url": "https://openrouter.ai/api/v1", "model": "" },
+    "gemini": { "base_url": "https://generativelanguage.googleapis.com/v1beta/openai", "model": "gemini-1.5-flash" },
+    "anthropic": { "base_url": "https://api.anthropic.com/v1", "model": "claude-3-5-sonnet-20241022", "kind": "anthropic" },
+    "mock": { "kind": "mock" }
+  }
+}

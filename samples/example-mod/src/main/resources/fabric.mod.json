@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "example-mod",
+  "version": "${version}",
+  "name": "Example Mod",
+  "description": "Sample mod for the migration tool.",
+  "authors": [
+    "Example"
+  ],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.example.mod.ExampleMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.24",
+    "minecraft": "~1.20.1",
+    "java": ">=17"
+  }
+}
