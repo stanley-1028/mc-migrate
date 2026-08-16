@@ -1,5 +1,6 @@
 // 打包後 exe 的端到端冒煙測試：
-// 啟動 MC-Migrate.exe → 用 CDP 在真實 GUI 填入專案路徑並點「開始遷移」→ 驗證產出。
+// 啟動 MC-Migrate.exe → CDP 連上真實 GUI → 以 Java 文件模式呼叫遷移 →
+// 驗證步驟列 5/5、報告產出、程式碼已遷移、介面結構（無資料夾輸入、有模型下拉）。
 // 用法：node app/smoke-test.mjs
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -10,46 +11,45 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXE = path.join(ROOT, 'app', 'dist', 'MC-Migrate.exe');
-const SAMPLE = path.join(ROOT, 'samples', 'example-mod');
 const PORT = 9223;
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-gui-test-'));
-const mod = path.join(tmp, 'mod');
-fs.cpSync(SAMPLE, mod, { recursive: true });
-fs.rmSync(path.join(mod, '.mc-migrate'), { recursive: true, force: true });
+const javaA = path.join(tmp, 'ItemClass.java');
+const javaB = path.join(tmp, 'CleanClass.java');
+fs.writeFileSync(
+  javaA,
+  'package com.example;\n\nimport net.minecraft.item.Item;\n\npublic class ItemClass {\n    public static final Item X = new Item(new Item.Settings());\n}\n',
+  'utf8'
+);
+const originalB = 'package com.example;\n\npublic class CleanClass {\n}\n';
+fs.writeFileSync(javaB, originalB, 'utf8');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  console.log(`啟動 exe（PID 待定）…`);
   const exe = spawn(EXE, [`--remote-debugging-port=${PORT}`], { stdio: 'ignore' });
   let page = null;
   for (let i = 0; i < 60 && !page; i++) {
     await sleep(1000);
     try {
       const targets = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
-      if (i === 9) console.log('全部 targets：' + JSON.stringify(targets.map((t) => ({ type: t.type, url: t.url, title: t.title }))));
       page = targets.find((t) => t.type === 'page' && /index\.html/i.test(t.url || ''));
       if (page) console.log(`取得 GUI 端點（第 ${i + 1} 秒）`);
     } catch {}
   }
   if (!page) {
-    console.error('FAIL：無法取得 GUI 除錯端點');
+    console.error('FAIL：無法取得 GUI 端點');
     spawnSync('taskkill', ['/PID', String(exe.pid), '/T', '/F']);
     process.exit(1);
   }
 
-  console.log(`連線 WebSocket：${page.webSocketDebuggerUrl}`);
   const ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((res, rej) => {
-    ws.onopen = () => {
-      console.log('WebSocket 已連線');
-      res();
-    };
-    ws.onerror = (e) => rej(new Error('WebSocket 連線失敗'));
+    ws.onopen = res;
+    ws.onerror = () => rej(new Error('WebSocket 連線失敗'));
   });
   let id = 0;
-  const evalJs = (expression) =>
+  const evalJs = (expression, awaitPromise = false) =>
     new Promise((resolve) => {
       const msgId = ++id;
       const onMsg = (ev) => {
@@ -60,63 +60,58 @@ async function main() {
         }
       };
       ws.addEventListener('message', onMsg);
-      ws.send(JSON.stringify({ id: msgId, method: 'Runtime.evaluate', params: { expression, returnByValue: true } }));
+      ws.send(JSON.stringify({ id: msgId, method: 'Runtime.evaluate', params: { expression, returnByValue: true, awaitPromise } }));
     });
 
-  const modPath = mod.replace(/\\/g, '\\\\');
-  console.log('填入表單並點擊開始遷移…');
-  const diag = await evalJs(
-    `JSON.stringify({
-      title: document.title,
-      hasRun: !!document.getElementById('run'),
-      hasApi: typeof window.api,
-      logText: document.getElementById('log') ? document.getElementById('log').textContent.slice(0, 60) : null
-    })`
+  const filesJs = JSON.stringify([javaA, javaB]);
+  const runRes = await evalJs(
+    `window.api.run({ files: ${filesJs}, provider: 'mock', target: '26.2' }).then(r => r.ok ? 'ok' : 'ERR:' + r.error)`,
+    true
   );
-  console.log(`診斷：${diag.result && diag.result.value}`);
-  const clickRes = await evalJs(
-    `document.getElementById('project').value = '${modPath}';
-    document.getElementById('provider').value = 'mock';
-    document.getElementById('run').click();
-    'ok'
-  `);
-  console.log(`點擊結果：${JSON.stringify(clickRes)}`);
+  console.log(`遷移呼叫結果：${runRes.result && runRes.result.value}`);
 
-  let status = '';
-  for (let i = 0; i < 120; i++) {
+  let stepsDone = 0;
+  for (let i = 0; i < 60; i++) {
+    const r = await evalJs(`document.querySelectorAll('.step.done').length`);
+    stepsDone = r.result && r.result.value;
+    if (stepsDone === 5) break;
     await sleep(1000);
-    const r = await evalJs(`document.getElementById('status-text').textContent`);
-    status = r.result && r.result.value;
-    if (status !== '執行中…' && status) break;
   }
 
-  const stepsDone = await evalJs(`document.querySelectorAll('.step.done').length`);
-  const summaryShown = await evalJs(`!document.getElementById('summaryStrip').hidden`);
+  const ui = await evalJs(
+    `JSON.stringify({
+      hasModelSelect: !!document.getElementById('model'),
+      noProjectInput: document.getElementById('project') === null,
+      hasDropZone: !!document.getElementById('dropZone')
+    })`
+  );
 
   ws.close();
-  console.log('關閉 GUI（taskkill）…');
   spawnSync('taskkill', ['/PID', String(exe.pid), '/T', '/F']);
-  console.log('檢查產出…');
 
-  const reportExists = fs.existsSync(path.join(mod, '.mc-migrate', 'MIGRATION_REPORT.md'));
-  const java = fs.existsSync(path.join(mod, 'src', 'main', 'java', 'com', 'example', 'mod', 'ExampleMod.java'))
-    ? fs.readFileSync(path.join(mod, 'src', 'main', 'java', 'com', 'example', 'mod', 'ExampleMod.java'), 'utf8')
-    : '';
-
+  const reportExists = fs.existsSync(path.join(tmp, '.mc-migrate', 'MIGRATION_REPORT.md'));
+  const migrated = readOr(javaA, '').includes('Item.of(new Item.Props())');
+  const cleanKept = readOr(javaB, '') === originalB;
   const ok =
-    status === '完成' &&
+    runRes.result && runRes.result.value === 'ok' &&
+    stepsDone === 5 &&
     reportExists &&
-    java.includes('Registry.registerItem(') &&
-    stepsDone.result.value === 5 &&
-    summaryShown.result.value === true;
+    migrated &&
+    cleanKept &&
+    ui.result && JSON.parse(ui.result.value).hasModelSelect &&
+    ui.result && JSON.parse(ui.result.value).noProjectInput &&
+    ui.result && JSON.parse(ui.result.value).hasDropZone;
 
-  console.log(`GUI 狀態：${status}`);
+  console.log(`步驟列完成：${stepsDone}/5`);
   console.log(`報告產出：${reportExists}`);
-  console.log(`程式碼已遷移：${java.includes('Registry.registerItem(')}`);
-  console.log(`步驟列完成：${stepsDone.result.value}/5`);
-  console.log(`摘要條顯示：${summaryShown.result.value}`);
+  console.log(`程式碼已遷移：${migrated}｜無關檔案保持原樣：${cleanKept}`);
+  console.log(`介面結構：${ui.result && ui.result.value}`);
   console.log(ok ? 'PASS：打包後的 GUI 可完成遷移' : 'FAIL：GUI 遷移未成功');
   process.exit(ok ? 0 : 1);
+}
+
+function readOr(p, fallback) {
+  return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : fallback;
 }
 
 main().catch((e) => {

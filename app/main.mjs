@@ -3,7 +3,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runMigration } from './lib/core.mjs';
+import { runMigration, DEFAULT_PROVIDERS } from './lib/core.mjs';
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 let win = null;
@@ -60,17 +60,31 @@ ipcMain.handle('settings:load', () => loadSettings());
 
 ipcMain.handle('settings:save', (e, s) => saveSettings(s));
 
-ipcMain.handle('folder:pick', async () => {
-  const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'] });
-  return r.canceled ? null : r.filePaths[0];
-});
-
 ipcMain.handle('file:pick', async () => {
   const r = await dialog.showOpenDialog(win, {
     properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Java / Kotlin', extensions: ['java', 'kt'] }],
   });
   return r.canceled ? [] : r.filePaths;
+});
+
+ipcMain.handle('models:list', async (e, { provider, apiKey }) => {
+  const prov = DEFAULT_PROVIDERS[provider] || {};
+  const base = (prov.base_url || '').replace(/\/$/, '');
+  const kind = prov.kind || 'openai';
+  if (!base || kind === 'mock') return { ok: false, error: '此供應商不支援模型清單' };
+  const headers = {};
+  if (kind === 'anthropic') headers['x-api-key'] = apiKey;
+  else if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  try {
+    const res = await fetch(`${base}/models`, { headers, signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json();
+    const models = (data.data || []).map((m) => m.id).filter(Boolean).slice(0, 200);
+    return { ok: true, models };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
 });
 
 ipcMain.handle('folder:open', async (e, p) => {

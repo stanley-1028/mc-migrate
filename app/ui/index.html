@@ -33,13 +33,9 @@
   <main>
     <section class="card side">
       <h2>專案</h2>
-      <div class="row">
-        <input id="project" placeholder="模組專案資料夾路徑" spellcheck="false">
-        <button class="btn ghost" id="pick">選資料夾</button>
-      </div>
-      <div class="files-row">
-        <span class="hint-text">或直接加入模組 Java 文件（不需完整專案）：</span>
-        <button class="btn ghost small" id="pickFiles">加入 Java 文件…</button>
+      <div class="drop-zone" id="dropZone">
+        <span class="plus">＋</span>
+        <span>加入 Java 文件（可多選）</span>
       </div>
       <div class="file-list" id="fileList" hidden></div>
       <div class="grid2">
@@ -61,9 +57,14 @@
               <option value="mock">Mock（離線演示）</option>
             </select>
           </label>
-          <label>模型<input id="model" placeholder="留空＝供應商預設"></label>
+          <label>模型
+            <select id="model">
+              <option value="">自動（供應商預設）</option>
+            </select>
+          </label>
           <label>API Key<input id="apiKey" type="password" placeholder="僅存本機"></label>
         </div>
+        <div class="hint-text" id="modelHint" hidden></div>
       </details>
 
       <h2>選項</h2>

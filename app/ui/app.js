@@ -1,6 +1,8 @@
 const $ = (id) => document.getElementById(id);
 let summary = null;
 let pickedFiles = [];
+let savedModel = '';
+let modelTimer = null;
 
 function renderFiles() {
   const list = $('fileList');
@@ -26,16 +28,12 @@ function renderFiles() {
 }
 
 function updateProjectChip() {
-  const project = $('project').value.trim();
   const chip = $('projChip');
-  if (project) {
-    chip.textContent = project.split(/[\\/]/).filter(Boolean).pop() || project;
-    chip.title = project;
-  } else if (pickedFiles.length) {
+  if (pickedFiles.length) {
     chip.textContent = `${pickedFiles.length} 個 Java 文件`;
     chip.title = pickedFiles.join('\n');
   } else {
-    chip.textContent = '未選擇專案';
+    chip.textContent = '未選擇文件';
     chip.title = '';
   }
 }
@@ -104,14 +102,47 @@ function buildSummary(summary) {
   chip(`建構驗證：${buildText}`, summary.buildFailed ? 'bad' : '');
 }
 
+// 輸入 API Key 後向供應商拉取可用模型清單
+async function loadModels() {
+  const provider = $('provider').value;
+  const key = $('apiKey').value.trim();
+  const sel = $('model');
+  const hint = $('modelHint');
+  sel.innerHTML = '<option value="">自動（供應商預設）</option>';
+  if (!key || provider === 'mock') {
+    hint.hidden = true;
+    return;
+  }
+  hint.hidden = false;
+  hint.textContent = '載入模型清單…';
+  try {
+    const r = await window.api.listModels(provider, key);
+    if (!r.ok) {
+      hint.textContent = `無法取得模型清單（${r.error}），可留空使用預設`;
+      return;
+    }
+    for (const m of r.models) {
+      const o = document.createElement('option');
+      o.value = m;
+      o.textContent = m;
+      sel.appendChild(o);
+    }
+    hint.textContent = `已載入 ${r.models.length} 個可用模型`;
+    if (savedModel && [...sel.options].some((o) => o.value === savedModel)) {
+      sel.value = savedModel;
+    }
+  } catch {
+    hint.textContent = '無法取得模型清單，可留空使用預設';
+  }
+}
+
 function collectParams() {
   return {
-    project: $('project').value.trim(),
     files: pickedFiles.length ? pickedFiles : null,
     target: $('target').value.trim() || '26.2',
     env: $('env').value.trim() || null,
     provider: $('provider').value,
-    model: $('model').value.trim(),
+    model: $('model').value,
     apiKey: $('apiKey').value,
     maxIterations: parseInt($('maxIterations').value, 10) || 5,
     buildCmd: $('buildCmd').value.trim(),
@@ -123,10 +154,9 @@ function collectParams() {
 
 async function init() {
   const s = await window.api.loadSettings();
-  if (s.project) $('project').value = s.project;
   if (s.target) $('target').value = s.target;
   if (s.provider) $('provider').value = s.provider;
-  if (s.model) $('model').value = s.model;
+  savedModel = s.model || '';
   if (s.apiKey) $('apiKey').value = s.apiKey;
   if (s.maxIterations) $('maxIterations').value = s.maxIterations;
   if (s.buildCmd) $('buildCmd').value = s.buildCmd;
@@ -134,21 +164,14 @@ async function init() {
   $('dryRun').checked = !!s.dryRun;
   $('force').checked = !!s.force;
   updateProjectChip();
+  if (s.apiKey) loadModels();
   window.api.onProgress(({ type, text }) => {
     if (type === 'step') setStep(text.step, text.status);
     else logLine(type, text);
   });
 }
 
-$('pick').onclick = async () => {
-  const p = await window.api.pickFolder();
-  if (p) {
-    $('project').value = p;
-    updateProjectChip();
-  }
-};
-
-$('pickFiles').onclick = async () => {
+$('dropZone').onclick = async () => {
   const files = await window.api.pickFiles();
   if (files && files.length) {
     for (const f of files) {
@@ -159,7 +182,14 @@ $('pickFiles').onclick = async () => {
   }
 };
 
-$('project').addEventListener('input', updateProjectChip);
+$('apiKey').addEventListener('input', () => {
+  clearTimeout(modelTimer);
+  modelTimer = setTimeout(loadModels, 600);
+});
+
+$('provider').addEventListener('change', () => {
+  if ($('apiKey').value.trim()) loadModels();
+});
 
 $('clear').onclick = () => {
   $('log').innerHTML = '';
@@ -168,8 +198,8 @@ $('clear').onclick = () => {
 
 $('run').onclick = async () => {
   const params = collectParams();
-  if (!params.project && !(params.files && params.files.length)) {
-    showError('請選擇模組專案資料夾，或加入 Java 文件');
+  if (!(params.files && params.files.length)) {
+    showError('請先加入 Java 文件');
     return;
   }
   if (params.provider !== 'mock' && !params.apiKey) {
