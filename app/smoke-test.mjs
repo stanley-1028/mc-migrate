@@ -21,13 +21,16 @@ fs.rmSync(path.join(mod, '.mc-migrate'), { recursive: true, force: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
+  console.log(`啟動 exe（PID 待定）…`);
   const exe = spawn(EXE, [`--remote-debugging-port=${PORT}`], { stdio: 'ignore' });
   let page = null;
   for (let i = 0; i < 60 && !page; i++) {
     await sleep(1000);
     try {
       const targets = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
-      page = targets.find((t) => t.type === 'page');
+      if (i === 9) console.log('全部 targets：' + JSON.stringify(targets.map((t) => ({ type: t.type, url: t.url, title: t.title }))));
+      page = targets.find((t) => t.type === 'page' && /index\.html/i.test(t.url || ''));
+      if (page) console.log(`取得 GUI 端點（第 ${i + 1} 秒）`);
     } catch {}
   }
   if (!page) {
@@ -36,10 +39,14 @@ async function main() {
     process.exit(1);
   }
 
+  console.log(`連線 WebSocket：${page.webSocketDebuggerUrl}`);
   const ws = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((res, rej) => {
-    ws.onopen = res;
-    ws.onerror = rej;
+    ws.onopen = () => {
+      console.log('WebSocket 已連線');
+      res();
+    };
+    ws.onerror = (e) => rej(new Error('WebSocket 連線失敗'));
   });
   let id = 0;
   const evalJs = (expression) =>
@@ -57,12 +64,23 @@ async function main() {
     });
 
   const modPath = mod.replace(/\\/g, '\\\\');
-  await evalJs(`
-    document.getElementById('project').value = '${modPath}';
+  console.log('填入表單並點擊開始遷移…');
+  const diag = await evalJs(
+    `JSON.stringify({
+      title: document.title,
+      hasRun: !!document.getElementById('run'),
+      hasApi: typeof window.api,
+      logText: document.getElementById('log') ? document.getElementById('log').textContent.slice(0, 60) : null
+    })`
+  );
+  console.log(`診斷：${diag.result && diag.result.value}`);
+  const clickRes = await evalJs(
+    `document.getElementById('project').value = '${modPath}';
     document.getElementById('provider').value = 'mock';
     document.getElementById('run').click();
     'ok'
   `);
+  console.log(`點擊結果：${JSON.stringify(clickRes)}`);
 
   let status = '';
   for (let i = 0; i < 120; i++) {
@@ -72,18 +90,31 @@ async function main() {
     if (status !== '執行中…' && status) break;
   }
 
+  const stepsDone = await evalJs(`document.querySelectorAll('.step.done').length`);
+  const summaryShown = await evalJs(`!document.getElementById('summaryStrip').hidden`);
+
   ws.close();
+  console.log('關閉 GUI（taskkill）…');
   spawnSync('taskkill', ['/PID', String(exe.pid), '/T', '/F']);
+  console.log('檢查產出…');
 
   const reportExists = fs.existsSync(path.join(mod, '.mc-migrate', 'MIGRATION_REPORT.md'));
   const java = fs.existsSync(path.join(mod, 'src', 'main', 'java', 'com', 'example', 'mod', 'ExampleMod.java'))
     ? fs.readFileSync(path.join(mod, 'src', 'main', 'java', 'com', 'example', 'mod', 'ExampleMod.java'), 'utf8')
     : '';
-  const ok = status === '完成' && reportExists && java.includes('Registry.registerItem(');
+
+  const ok =
+    status === '完成' &&
+    reportExists &&
+    java.includes('Registry.registerItem(') &&
+    stepsDone.result.value === 5 &&
+    summaryShown.result.value === true;
 
   console.log(`GUI 狀態：${status}`);
   console.log(`報告產出：${reportExists}`);
   console.log(`程式碼已遷移：${java.includes('Registry.registerItem(')}`);
+  console.log(`步驟列完成：${stepsDone.result.value}/5`);
+  console.log(`摘要條顯示：${summaryShown.result.value}`);
   console.log(ok ? 'PASS：打包後的 GUI 可完成遷移' : 'FAIL：GUI 遷移未成功');
   process.exit(ok ? 0 : 1);
 }

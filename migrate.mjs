@@ -77,6 +77,7 @@ runMigration(
     skillsDir: opts['skills-dir'],
   },
   (type, text) => {
+    if (type === 'step') return;
     if (type === 'warn' || type === 'error') console.error(text);
     else console.log(text);
   }

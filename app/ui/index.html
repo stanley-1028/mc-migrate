@@ -14,8 +14,21 @@
         <p>Minecraft 模組版本升級 AI 工具</p>
       </div>
     </div>
+    <div class="proj-chip" id="projChip" title="">未選擇專案</div>
     <div class="status-chip" id="status"><span class="dot"></span><span id="status-text">待命</span></div>
   </header>
+
+  <div class="steps" id="steps">
+    <div class="step" data-step="1"><span class="n">1</span><span class="t">分析</span></div>
+    <div class="line" data-line="1"></div>
+    <div class="step" data-step="2"><span class="n">2</span><span class="t">規劃</span></div>
+    <div class="line" data-line="2"></div>
+    <div class="step" data-step="3"><span class="n">3</span><span class="t">遷移</span></div>
+    <div class="line" data-line="3"></div>
+    <div class="step" data-step="4"><span class="n">4</span><span class="t">驗證</span></div>
+    <div class="line" data-line="4"></div>
+    <div class="step" data-step="5"><span class="n">5</span><span class="t">報告</span></div>
+  </div>
 
   <main>
     <section class="card side">
@@ -63,8 +76,6 @@
         <label class="check"><input type="checkbox" id="noBuild"><span>跳過建構驗證</span></label>
         <label class="check"><input type="checkbox" id="force"><span>強制（git 不乾淨仍繼續）</span></label>
       </div>
-      <button class="btn primary" id="run">開始遷移</button>
-      <div class="error" id="error" hidden></div>
     </section>
 
     <section class="card grow">
@@ -72,8 +83,9 @@
         <h2>進度</h2>
         <button class="btn ghost small" id="clear" disabled>清除</button>
       </div>
+      <div class="summary" id="summaryStrip" hidden></div>
       <div class="log" id="log">
-        <div class="hint">選擇專案後點擊「開始遷移」。沒有 API Key 可先選 Mock 供應商離線體驗。</div>
+        <div class="hint">選擇專案或加入 Java 文件後，點擊下方「開始遷移」。沒有 API Key 可先選 Mock 供應商離線體驗。</div>
       </div>
       <div class="actions" id="actions" hidden>
         <button class="btn ghost" id="openDir">開啟專案資料夾</button>
@@ -83,7 +95,12 @@
     </section>
   </main>
 
-  <footer>MC-Migrate v1.0 · API Key 僅存本機、不隨專案提交 · 遷移前請確認 git 狀態</footer>
+  <div class="error" id="error" hidden></div>
+
+  <footer class="actionbar">
+    <span class="hint">v1.0 · API Key 僅存本機、不隨專案提交 · 遷移前請確認 git 狀態</span>
+    <button class="btn primary" id="run">開始遷移</button>
+  </footer>
 
   <script src="app.js"></script>
 </body>

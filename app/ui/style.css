@@ -26,6 +26,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   padding: 14px 22px;
   background: var(--card);
   border-bottom: 1px solid var(--line);
@@ -42,6 +43,21 @@ header {
 .brand h1 { font-size: 16px; font-weight: 700; }
 .brand p { color: var(--muted); font-size: 12px; }
 
+.proj-chip {
+  flex: 1;
+  max-width: 50%;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .status-chip {
   display: flex; align-items: center; gap: 8px;
   background: var(--green-soft); color: var(--green-dark);
@@ -53,6 +69,50 @@ header {
 .status-chip.running .dot { background: #eab308; }
 .status-chip.failed { background: #fee2e2; color: #b91c1c; }
 .status-chip.failed .dot { background: #ef4444; }
+
+/* 五階段步驟列 */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px 0;
+  flex-shrink: 0;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.step .n {
+  width: 22px; height: 22px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 600;
+  background: #fff;
+  transition: all .15s;
+}
+.step.done { color: var(--green-dark); }
+.step.done .n { background: var(--green); border-color: var(--green); color: #fff; }
+.step.active { color: var(--text); font-weight: 600; }
+.step.active .n { border-color: var(--green); color: var(--green-dark); background: var(--green-soft); }
+.step.failed { color: #b91c1c; font-weight: 600; }
+.step.failed .n { background: #ef4444; border-color: #ef4444; color: #fff; }
+.line { flex: 1; height: 2px; background: var(--line); border-radius: 1px; max-width: 56px; transition: background .15s; }
+.line.done { background: var(--green); }
+
+/* 結果摘要條 */
+.summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.chip-sum {
+  background: var(--green-soft); color: var(--green-dark);
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+}
+.chip-sum.warn { background: #fef9c3; color: #a16207; }
+.chip-sum.bad { background: #fee2e2; color: #b91c1c; }
 
 main {
   display: flex; gap: 16px;
@@ -121,7 +181,11 @@ input:focus, select:focus {
   transition: background .15s, border-color .15s, color .15s;
   white-space: nowrap;
 }
-.btn.primary { background: var(--green); color: #fff; width: 100%; margin-top: 14px; padding: 11px; }
+.btn.primary {
+  background: var(--green); color: #fff;
+  padding: 12px 48px; font-size: 15px;
+  border-radius: 10px;
+}
 .btn.primary:hover { background: var(--green-dark); }
 .btn.primary:disabled { background: #a7c9b2; cursor: not-allowed; }
 .btn.ghost { background: #fff; border-color: var(--line); color: var(--text); }
@@ -133,10 +197,11 @@ input:focus, select:focus {
 .check input { width: auto; accent-color: var(--green); }
 
 .error {
-  margin-top: 12px;
+  margin: 0 22px 12px;
   background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
   border-radius: 8px; padding: 10px 12px;
   font-size: 12.5px; white-space: pre-wrap;
+  flex-shrink: 0;
 }
 
 .log {
@@ -154,8 +219,12 @@ input:focus, select:focus {
 
 .actions { display: flex; gap: 8px; margin-top: 12px; }
 
-footer {
-  padding: 8px 22px;
+footer.actionbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 22px;
   color: var(--muted); font-size: 11.5px;
   border-top: 1px solid var(--line);
   background: var(--card);

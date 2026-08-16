@@ -18,9 +18,25 @@ function renderFiles() {
     x.onclick = () => {
       pickedFiles = pickedFiles.filter((v) => v !== f);
       renderFiles();
+      updateProjectChip();
     };
     chip.append(p, x);
     list.appendChild(chip);
+  }
+}
+
+function updateProjectChip() {
+  const project = $('project').value.trim();
+  const chip = $('projChip');
+  if (project) {
+    chip.textContent = project.split(/[\\/]/).filter(Boolean).pop() || project;
+    chip.title = project;
+  } else if (pickedFiles.length) {
+    chip.textContent = `${pickedFiles.length} 個 Java 文件`;
+    chip.title = pickedFiles.join('\n');
+  } else {
+    chip.textContent = '未選擇專案';
+    chip.title = '';
   }
 }
 
@@ -45,6 +61,47 @@ function showError(msg) {
 
 function hideError() {
   $('error').hidden = true;
+}
+
+function resetSteps() {
+  for (let i = 1; i <= 5; i++) {
+    const el = document.querySelector(`.step[data-step="${i}"]`);
+    el.className = 'step';
+    el.querySelector('.n').textContent = String(i);
+    const line = document.querySelector(`.line[data-line="${i}"]`);
+    if (line) line.classList.remove('done');
+  }
+}
+
+function setStep(i, status) {
+  const el = document.querySelector(`.step[data-step="${i}"]`);
+  if (!el) return;
+  el.className = 'step' + (status ? ' ' + status : '');
+  if (status === 'done') el.querySelector('.n').textContent = '✓';
+  const line = document.querySelector(`.line[data-line="${i}"]`);
+  if (line) line.classList.toggle('done', status === 'done');
+}
+
+function failActiveStep() {
+  const active = document.querySelector('.step.active');
+  if (active) active.className = 'step failed';
+}
+
+function buildSummary(summary) {
+  const strip = $('summaryStrip');
+  strip.innerHTML = '';
+  strip.hidden = false;
+  const chip = (text, cls) => {
+    const d = document.createElement('span');
+    d.className = 'chip-sum' + (cls ? ' ' + cls : '');
+    d.textContent = text;
+    strip.appendChild(d);
+  };
+  chip(`變更 ${summary.changed} 檔`);
+  if (summary.reviewCount) chip(`需人工確認 ${summary.reviewCount} 項`, 'warn');
+  chip(`迭代 ${summary.iterations} 次`);
+  const buildText = summary.buildStatus === 'ok' ? '通過' : summary.buildStatus === 'skip' ? '跳過' : '失敗';
+  chip(`建構驗證：${buildText}`, summary.buildFailed ? 'bad' : '');
 }
 
 function collectParams() {
@@ -76,12 +133,19 @@ async function init() {
   $('noBuild').checked = !!s.noBuild;
   $('dryRun').checked = !!s.dryRun;
   $('force').checked = !!s.force;
-  window.api.onProgress(({ type, text }) => logLine(type, text));
+  updateProjectChip();
+  window.api.onProgress(({ type, text }) => {
+    if (type === 'step') setStep(text.step, text.status);
+    else logLine(type, text);
+  });
 }
 
 $('pick').onclick = async () => {
   const p = await window.api.pickFolder();
-  if (p) $('project').value = p;
+  if (p) {
+    $('project').value = p;
+    updateProjectChip();
+  }
 };
 
 $('pickFiles').onclick = async () => {
@@ -91,8 +155,11 @@ $('pickFiles').onclick = async () => {
       if (!pickedFiles.includes(f)) pickedFiles.push(f);
     }
     renderFiles();
+    updateProjectChip();
   }
 };
+
+$('project').addEventListener('input', updateProjectChip);
 
 $('clear').onclick = () => {
   $('log').innerHTML = '';
@@ -115,13 +182,18 @@ $('run').onclick = async () => {
   $('actions').hidden = true;
   $('saveReport').hidden = true;
   $('savePatch').hidden = true;
+  $('summaryStrip').hidden = true;
+  $('summaryStrip').innerHTML = '';
   $('run').disabled = true;
   $('clear').disabled = false;
+  resetSteps();
+  setStep(1, 'active');
   setStatus('running', '執行中…');
   await window.api.saveSettings(params);
   try {
     const r = await window.api.run(params);
     if (!r.ok) {
+      failActiveStep();
       showError(r.error);
       setStatus('failed', '失敗');
     } else {
@@ -133,8 +205,9 @@ $('run').onclick = async () => {
       } else {
         setStatus('', '完成');
       }
-      $('actions').hidden = false;
       if (!summary.dryRun) {
+        buildSummary(summary);
+        $('actions').hidden = false;
         $('saveReport').hidden = false;
         $('savePatch').hidden = false;
       }
