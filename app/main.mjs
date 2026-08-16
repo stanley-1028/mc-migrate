@@ -2,13 +2,25 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runMigration, DEFAULT_PROVIDERS } from './lib/core.mjs';
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO = 'stanley-1028/mc-migrate';
 let win = null;
 let running = false;
 let currentRun = null;
+
+function cmpVersion(a, b) {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
 
 function settingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
@@ -121,6 +133,73 @@ ipcMain.handle('run', async (e, params) => {
 
 ipcMain.handle('run:cancel', () => {
   if (currentRun) currentRun.abort();
+});
+
+// ---------- 自動更新（GitHub Release） ----------
+ipcMain.handle('update:check', async () => {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      signal: AbortSignal.timeout(15000),
+      headers: { 'user-agent': 'MC-Migrate', accept: 'application/vnd.github+json' },
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json();
+    const latest = String(data.tag_name || '').replace(/^v/, '');
+    const current = app.getVersion();
+    const asset = (data.assets || []).find((a) => /\.exe$/i.test(a.name || ''));
+    if (!asset) return { ok: false, error: '最新 Release 沒有 exe 資產' };
+    return {
+      ok: true,
+      current,
+      latest,
+      hasUpdate: cmpVersion(latest, current) > 0,
+      url: asset.browser_download_url,
+      size: asset.size,
+    };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle('update:install', async (e, url) => {
+  const original = process.env.PORTABLE_EXECUTABLE_FILE;
+  if (!original) return { ok: false, error: '開發模式不支援自動更新，請手動下載新版 exe' };
+  try {
+    const tmp = original + '.new';
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(900000),
+      headers: { 'user-agent': 'MC-Migrate' },
+    });
+    if (!res.ok) return { ok: false, error: `下載失敗 HTTP ${res.status}` };
+    const total = Number(res.headers.get('content-length') || 0);
+    const out = fs.createWriteStream(tmp);
+    let done = 0;
+    let lastPct = -1;
+    for await (const chunk of res.body) {
+      done += chunk.length;
+      out.write(chunk);
+      const pct = total ? Math.floor((done / total) * 100) : -1;
+      if (pct >= 0 && pct - lastPct >= 5 && win && !win.isDestroyed()) {
+        win.webContents.send('update:progress', { done, total, pct });
+        lastPct = pct;
+      }
+    }
+    await new Promise((resolve, reject) => {
+      out.on('close', resolve);
+      out.on('error', reject);
+      out.end();
+    });
+    const bat = original.replace(/\.exe$/i, '') + '_update.bat';
+    fs.writeFileSync(
+      bat,
+      '@echo off\r\ntimeout /t 2 >nul\r\nmove /y "' + tmp + '" "' + original + '" >nul\r\nstart "" "' + original + '"\r\ndel "%~f0"\r\n'
+    );
+    spawn(bat, [], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    setTimeout(() => app.quit(), 800);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
 });
 
 ipcMain.handle('artifact:save', async (e, { kind, filePath }) => {

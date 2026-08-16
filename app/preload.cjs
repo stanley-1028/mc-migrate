@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld('api', {
   openFolder: (p) => ipcRenderer.invoke('folder:open', p),
   run: (params) => ipcRenderer.invoke('run', params),
   cancel: () => ipcRenderer.invoke('run:cancel'),
+  updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateInstall: (url) => ipcRenderer.invoke('update:install', url),
+  onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (e, data) => cb(data)),
   saveArtifact: (kind, filePath) => ipcRenderer.invoke('artifact:save', { kind, filePath }),
   onProgress: (cb) => ipcRenderer.on('progress', (e, data) => cb(data)),
 });

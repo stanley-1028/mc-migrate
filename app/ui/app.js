@@ -263,6 +263,52 @@ $('cancel').onclick = async () => {
   await window.api.cancel();
 };
 
+const shownPcts = new Set();
+window.api.onUpdateProgress(({ pct }) => {
+  if (!shownPcts.has(pct)) {
+    shownPcts.add(pct);
+    logLine('log', `下載中：${pct}%`);
+  }
+});
+
+$('checkUpdate').onclick = async () => {
+  $('checkUpdate').disabled = true;
+  setStatus('running', '檢查更新…');
+  try {
+    const r = await window.api.updateCheck();
+    if (!r.ok) {
+      logLine('warn', `檢查更新失敗：${r.error}`);
+      setStatus('', '待命');
+      return;
+    }
+    if (!r.hasUpdate) {
+      logLine('log', `已是最新版本 v${r.current}`);
+      setStatus('', '待命');
+      return;
+    }
+    const yes = confirm(
+      `發現新版 v${r.latest}（目前 v${r.current}，約 ${Math.round((r.size || 0) / 1048576)} MB）。\n要下載並自動更新嗎？`
+    );
+    if (!yes) {
+      setStatus('', '待命');
+      return;
+    }
+    $('run').disabled = true;
+    shownPcts.clear();
+    logLine('log', `開始下載 v${r.latest}…`);
+    const inst = await window.api.updateInstall(r.url);
+    if (!inst.ok) {
+      logLine('warn', `更新失敗：${inst.error}`);
+      setStatus('', '待命');
+      $('run').disabled = false;
+      return;
+    }
+    logLine('log', '更新已套用，正在重新啟動…');
+  } finally {
+    $('checkUpdate').disabled = false;
+  }
+};
+
 $('openDir').onclick = () => {
   if (summary) window.api.openFolder(summary.project);
 };

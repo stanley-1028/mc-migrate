@@ -100,6 +100,7 @@ async function main() {
       hasModelSelect: !!document.getElementById('model'),
       noProjectInput: document.getElementById('project') === null,
       hasDropZone: !!document.getElementById('dropZone'),
+      hasUpdateButton: !!document.getElementById('checkUpdate'),
       footer: document.getElementById('footerText') ? document.getElementById('footerText').textContent : null
     })`
   );
@@ -108,6 +109,11 @@ async function main() {
     true
   );
   console.log(`getVersion 結果：${verDiag.result && verDiag.result.value}`);
+  const updDiag = await evalJs(
+    `window.api.updateCheck().then(r => JSON.stringify({ ok: r.ok, latest: r.latest, current: r.current, has: r.hasUpdate, err: r.error }))`,
+    true
+  );
+  console.log(`更新檢查結果：${updDiag.result && updDiag.result.value}`);
 
   ws.close();
   spawnSync('taskkill', ['/PID', String(exe.pid), '/T', '/F']);
@@ -123,7 +129,10 @@ async function main() {
     cleanKept &&
     ui.result && JSON.parse(ui.result.value).hasModelSelect &&
     ui.result && JSON.parse(ui.result.value).noProjectInput &&
-    ui.result && JSON.parse(ui.result.value).hasDropZone;
+    ui.result && JSON.parse(ui.result.value).hasDropZone &&
+    ui.result && JSON.parse(ui.result.value).hasUpdateButton &&
+    updDiag.result && JSON.parse(updDiag.result.value).ok === true &&
+    /^\d+\.\d+\.\d+$/.test(JSON.parse(updDiag.result.value).latest || '');
 
   console.log(`步驟列完成：${stepsDone}/5`);
   console.log(`報告產出：${reportExists}`);
