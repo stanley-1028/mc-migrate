@@ -232,7 +232,22 @@ test('大型檔案分段遷移：單一請求不超過上限（413 防護）', a
   assert.equal(code, 0, output);
   assert.ok(requests >= 4, `分段呼叫數（${requests}）`);
   assert.ok(maxBody < 40000, `單一請求大小 ${maxBody} bytes 未超上限`);
+  assert.ok(output.includes('遷移段 1/'), '有分段進度輸出');
   assert.ok(fs.existsSync(path.join(dir, '.mc-migrate', 'MIGRATION_REPORT.md')), '報告產出');
+});
+
+test('files 模式拒絕二進位與超大檔案', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-guard-test-'));
+  const jar = path.join(dir, 'mod.jar');
+  fs.writeFileSync(jar, 'x'.repeat(1000));
+  const r1 = run(['--files', jar, '--provider', 'mock']);
+  assert.notEqual(r1.status, 0, 'jar 應被拒絕');
+  assert.ok(/二進位|壓縮/.test(r1.stderr), r1.stderr);
+  const big = path.join(dir, 'Huge.java');
+  fs.writeFileSync(big, '// filler line\n'.repeat(30000));
+  const r2 = run(['--files', big, '--provider', 'mock']);
+  assert.notEqual(r2.status, 0, '超大檔應被拒絕');
+  assert.ok(r2.stderr.includes('過大'), r2.stderr);
 });
 
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {

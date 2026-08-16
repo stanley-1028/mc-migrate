@@ -100,7 +100,10 @@
 
   <footer class="actionbar">
     <span class="hint" id="footerText">API Key 僅存本機、不隨專案提交 · 遷移前請確認 git 狀態</span>
-    <button class="btn primary" id="run">開始遷移</button>
+    <div class="actions-bar">
+      <button class="btn ghost" id="cancel" hidden>取消</button>
+      <button class="btn primary" id="run">開始遷移</button>
+    </div>
   </footer>
 
   <script src="app.js"></script>

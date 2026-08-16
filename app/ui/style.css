@@ -247,3 +247,4 @@ footer.actionbar {
   background: var(--card);
   flex-shrink: 0;
 }
+.actions-bar { display: flex; gap: 8px; align-items: center; }

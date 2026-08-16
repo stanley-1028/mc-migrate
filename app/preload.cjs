@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   listModels: (provider, apiKey) => ipcRenderer.invoke('models:list', { provider, apiKey }),
   openFolder: (p) => ipcRenderer.invoke('folder:open', p),
   run: (params) => ipcRenderer.invoke('run', params),
+  cancel: () => ipcRenderer.invoke('run:cancel'),
   saveArtifact: (kind, filePath) => ipcRenderer.invoke('artifact:save', { kind, filePath }),
   onProgress: (cb) => ipcRenderer.on('progress', (e, data) => cb(data)),
 });

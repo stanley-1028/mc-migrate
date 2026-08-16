@@ -219,6 +219,7 @@ $('run').onclick = async () => {
   $('summaryStrip').hidden = true;
   $('summaryStrip').innerHTML = '';
   $('run').disabled = true;
+  $('cancel').hidden = false;
   $('clear').disabled = false;
   resetSteps();
   setStep(1, 'active');
@@ -228,8 +229,13 @@ $('run').onclick = async () => {
     const r = await window.api.run(params);
     if (!r.ok) {
       failActiveStep();
-      showError(r.error);
-      setStatus('failed', '失敗');
+      if (r.cancelled) {
+        setStatus('', '已取消');
+        logLine('warn', '已取消：已完成的檔案有備份與狀態記錄，再次執行會接續。');
+      } else {
+        showError(r.error);
+        setStatus('failed', '失敗');
+      }
     } else {
       summary = r.summary;
       if (summary.dryRun) {
@@ -248,7 +254,13 @@ $('run').onclick = async () => {
     }
   } finally {
     $('run').disabled = false;
+    $('cancel').hidden = true;
   }
+};
+
+$('cancel').onclick = async () => {
+  logLine('warn', '送出取消請求…（等待目前這一段完成）');
+  await window.api.cancel();
 };
 
 $('openDir').onclick = () => {

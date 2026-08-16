@@ -8,6 +8,7 @@ import { runMigration, DEFAULT_PROVIDERS } from './lib/core.mjs';
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 let win = null;
 let running = false;
+let currentRun = null;
 
 function settingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
@@ -63,6 +64,10 @@ ipcMain.handle('settings:save', (e, s) => saveSettings(s));
 ipcMain.handle('file:pick', async () => {
   const r = await dialog.showOpenDialog(win, {
     properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: '原始碼（Java / Kotlin）', extensions: ['java', 'kt'] },
+      { name: '所有檔案', extensions: ['*'] },
+    ],
   });
   return r.canceled ? [] : r.filePaths;
 });
@@ -95,19 +100,27 @@ ipcMain.handle('folder:open', async (e, p) => {
 ipcMain.handle('run', async (e, params) => {
   if (running) return { ok: false, error: '已有遷移任務執行中' };
   running = true;
+  const controller = new AbortController();
+  currentRun = controller;
   try {
     params.fromVer = '1.20.1';
     saveSettings(params);
     const send = (type, text) => {
       if (win && !win.isDestroyed()) win.webContents.send('progress', { type, text });
     };
-    const summary = await runMigration(params, send);
+    const summary = await runMigration({ ...params, abort: controller.signal }, send);
     return { ok: true, summary };
   } catch (err) {
-    return { ok: false, error: String((err && err.message) || err) };
+    const msg = String((err && err.message) || err);
+    return { ok: false, error: msg, cancelled: /已取消/.test(msg) };
   } finally {
     running = false;
+    currentRun = null;
   }
+});
+
+ipcMain.handle('run:cancel', () => {
+  if (currentRun) currentRun.abort();
 });
 
 ipcMain.handle('artifact:save', async (e, { kind, filePath }) => {
