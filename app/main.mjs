@@ -63,10 +63,11 @@ ipcMain.handle('settings:save', (e, s) => saveSettings(s));
 ipcMain.handle('file:pick', async () => {
   const r = await dialog.showOpenDialog(win, {
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Java / Kotlin', extensions: ['java', 'kt'] }],
   });
   return r.canceled ? [] : r.filePaths;
 });
+
+ipcMain.handle('app:version', () => app.getVersion());
 
 ipcMain.handle('models:list', async (e, { provider, apiKey }) => {
   const prov = DEFAULT_PROVIDERS[provider] || {};

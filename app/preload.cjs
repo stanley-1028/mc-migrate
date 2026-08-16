@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (s) => ipcRenderer.invoke('settings:save', s),
   pickFiles: () => ipcRenderer.invoke('file:pick'),
+  getVersion: () => ipcRenderer.invoke('app:version'),
   listModels: (provider, apiKey) => ipcRenderer.invoke('models:list', { provider, apiKey }),
   openFolder: (p) => ipcRenderer.invoke('folder:open', p),
   run: (params) => ipcRenderer.invoke('run', params),

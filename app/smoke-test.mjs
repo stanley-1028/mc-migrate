@@ -63,6 +63,23 @@ async function main() {
       ws.send(JSON.stringify({ id: msgId, method: 'Runtime.evaluate', params: { expression, returnByValue: true, awaitPromise } }));
     });
 
+  // 等介面就緒（init 完成，footer 出現版本號）再開始
+  let ready = false;
+  for (let i = 0; i < 30; i++) {
+    const r = await evalJs(`document.getElementById('footerText').textContent`);
+    if (r.result && r.result.value && r.result.value.includes('v1.')) {
+      ready = true;
+      break;
+    }
+    await sleep(500);
+  }
+  if (!ready) {
+    console.error('FAIL：介面未就緒');
+    ws.close();
+    spawnSync('taskkill', ['/PID', String(exe.pid), '/T', '/F']);
+    process.exit(1);
+  }
+
   const filesJs = JSON.stringify([javaA, javaB]);
   const runRes = await evalJs(
     `window.api.run({ files: ${filesJs}, provider: 'mock', target: '26.2' }).then(r => r.ok ? 'ok' : 'ERR:' + r.error)`,
@@ -82,9 +99,15 @@ async function main() {
     `JSON.stringify({
       hasModelSelect: !!document.getElementById('model'),
       noProjectInput: document.getElementById('project') === null,
-      hasDropZone: !!document.getElementById('dropZone')
+      hasDropZone: !!document.getElementById('dropZone'),
+      footer: document.getElementById('footerText') ? document.getElementById('footerText').textContent : null
     })`
   );
+  const verDiag = await evalJs(
+    `window.api.getVersion().then(v => 'V=' + v, e => 'ERR:' + e.message)`,
+    true
+  );
+  console.log(`getVersion 結果：${verDiag.result && verDiag.result.value}`);
 
   ws.close();
   spawnSync('taskkill', ['/PID', String(exe.pid), '/T', '/F']);

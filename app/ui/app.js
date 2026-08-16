@@ -165,11 +165,15 @@ async function init() {
   $('force').checked = !!s.force;
   updateProjectChip();
   if (s.apiKey) loadModels();
-  window.api.onProgress(({ type, text }) => {
-    if (type === 'step') setStep(text.step, text.status);
-    else logLine(type, text);
-  });
+  const ver = await window.api.getVersion();
+  $('footerText').textContent = `MC-Migrate v${ver} · API Key 僅存本機、不隨專案提交 · 遷移前請確認 git 狀態`;
 }
+
+// 進度監聽最先註冊（不放在 init 的 await 之後，避免遺失早期事件）
+window.api.onProgress(({ type, text }) => {
+  if (type === 'step') setStep(text.step, text.status);
+  else logLine(type, text);
+});
 
 $('dropZone').onclick = async () => {
   const files = await window.api.pickFiles();
