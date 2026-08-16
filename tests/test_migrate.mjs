@@ -3,11 +3,13 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { splitChunks } from '../lib/core.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIGRATE = path.join(ROOT, 'migrate.mjs');
@@ -172,6 +174,65 @@ test('--files 直接遷移指定的 Java 文件', () => {
   assert.equal(read(b), originalB, '未受影響的檔案保持原樣');
   assert.ok(fs.existsSync(path.join(dir, '.mc-migrate', 'MIGRATION_REPORT.md')), '報告產出');
   assert.ok(fs.existsSync(path.join(dir, '.mc-migrate', 'backup', 'ItemClass.java')), '備份產出');
+});
+
+test('splitChunks：大檔分段且重組無損', () => {
+  const lines = Array.from({ length: 200 }, (_, i) => `// filler line ${i}`);
+  const content = lines.join('\n');
+  const chunks = splitChunks(content, 500);
+  assert.ok(chunks.length > 1, '分成多段');
+  assert.ok(chunks.every((c) => c.length <= 600), '每段不超過上限');
+  assert.equal(chunks.join('\n'), content, '重組後與原檔一致');
+  const hard = splitChunks('x'.repeat(3000), 500);
+  assert.equal(hard.length, 6, '超長單行硬切');
+});
+
+test('大型檔案分段遷移：單一請求不超過上限（413 防護）', async () => {
+  let maxBody = 0;
+  let requests = 0;
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', (d) => (body += d));
+    req.on('end', () => {
+      requests++;
+      maxBody = Math.max(maxBody, body.length);
+      let user = '';
+      try {
+        const data = JSON.parse(body);
+        user = data.messages.find((m) => m.role === 'user').content;
+      } catch {}
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: user } }] }));
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-chunk-test-'));
+  const big = path.join(dir, 'BigClass.java');
+  const content =
+    Array.from({ length: 1500 }, (_, i) => `// filler line ${i}`).join('\n') +
+    '\n    public static final Item X = new Item(new Item.Settings());\n';
+  fs.writeFileSync(big, content, 'utf8');
+  const cfg = path.join(dir, 'fake.json');
+  fs.writeFileSync(
+    cfg,
+    JSON.stringify({
+      provider: 'fake',
+      providers: { fake: { base_url: `http://127.0.0.1:${port}/v1`, model: 'fake-model' } },
+    }),
+    'utf8'
+  );
+  const r = spawn(NODE, [MIGRATE, '--files', big, '--provider', 'fake', '--config', cfg], { encoding: 'utf8' });
+  let output = '';
+  r.stdout.on('data', (d) => (output += d));
+  r.stderr.on('data', (d) => (output += d));
+  const code = await new Promise((resolve) => r.on('exit', resolve));
+  if (server.closeAllConnections) server.closeAllConnections();
+  server.close();
+  assert.equal(code, 0, output);
+  assert.ok(requests >= 4, `分段呼叫數（${requests}）`);
+  assert.ok(maxBody < 40000, `單一請求大小 ${maxBody} bytes 未超上限`);
+  assert.ok(fs.existsSync(path.join(dir, '.mc-migrate', 'MIGRATION_REPORT.md')), '報告產出');
 });
 
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {
