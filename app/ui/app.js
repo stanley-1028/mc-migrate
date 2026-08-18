@@ -145,6 +145,7 @@ function collectParams() {
     model: $('model').value,
     apiKey: $('apiKey').value,
     maxIterations: parseInt($('maxIterations').value, 10) || 5,
+    maxFileChars: (parseInt($('maxFileMb').value, 10) || 5) * 1024 * 1024,
     buildCmd: $('buildCmd').value.trim(),
     noBuild: $('noBuild').checked,
     dryRun: $('dryRun').checked,
@@ -159,6 +160,7 @@ async function init() {
   savedModel = s.model || '';
   if (s.apiKey) $('apiKey').value = s.apiKey;
   if (s.maxIterations) $('maxIterations').value = s.maxIterations;
+  if (s.maxFileMb) $('maxFileMb').value = s.maxFileMb;
   if (s.buildCmd) $('buildCmd').value = s.buildCmd;
   $('noBuild').checked = !!s.noBuild;
   $('dryRun').checked = !!s.dryRun;

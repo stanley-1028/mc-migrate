@@ -74,12 +74,9 @@ ipcMain.handle('settings:load', () => loadSettings());
 ipcMain.handle('settings:save', (e, s) => saveSettings(s));
 
 ipcMain.handle('file:pick', async () => {
+  // 不加 filters：某些 Windows 環境下篩選會導致檔案不顯示；類型/大小由核心檢查
   const r = await dialog.showOpenDialog(win, {
     properties: ['openFile', 'multiSelections'],
-    filters: [
-      { name: '原始碼（Java / Kotlin）', extensions: ['java', 'kt'] },
-      { name: '所有檔案', extensions: ['*'] },
-    ],
   });
   return r.canceled ? [] : r.filePaths;
 });

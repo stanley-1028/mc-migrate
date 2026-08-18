@@ -210,7 +210,7 @@ test('大型檔案分段遷移：單一請求不超過上限（413 防護）', a
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-chunk-test-'));
   const big = path.join(dir, 'BigClass.java');
   const content =
-    Array.from({ length: 1500 }, (_, i) => `// filler line ${i}`).join('\n') +
+    Array.from({ length: 3000 }, (_, i) => `// filler line ${i}`).join('\n') +
     '\n    public static final Item X = new Item(new Item.Settings());\n';
   fs.writeFileSync(big, content, 'utf8');
   const cfg = path.join(dir, 'fake.json');
@@ -244,10 +244,22 @@ test('files 模式拒絕二進位與超大檔案', () => {
   assert.notEqual(r1.status, 0, 'jar 應被拒絕');
   assert.ok(/二進位|壓縮/.test(r1.stderr), r1.stderr);
   const big = path.join(dir, 'Huge.java');
-  fs.writeFileSync(big, '// filler line\n'.repeat(30000));
+  fs.writeFileSync(big, '// filler line\n'.repeat(600000)); // 約 8.4MB > 5MB 上限
   const r2 = run(['--files', big, '--provider', 'mock']);
   assert.notEqual(r2.status, 0, '超大檔應被拒絕');
   assert.ok(r2.stderr.includes('過大'), r2.stderr);
+});
+
+test('大型原始碼檔（未超上限）可正常遷移', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-large-ok-test-'));
+  const f = path.join(dir, 'Large.java');
+  fs.writeFileSync(
+    f,
+    '// filler\n'.repeat(30000) + '    public static final Item X = new Item(new Item.Settings());\n'
+  );
+  const r = run(['--files', f, '--provider', 'mock']);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(read(f).includes('Item.of(new Item.Props())'), '大檔已遷移');
 });
 
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {
