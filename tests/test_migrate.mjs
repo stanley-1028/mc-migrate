@@ -238,10 +238,10 @@ test('大型檔案分段遷移：單一請求不超過上限（413 防護）', a
 
 test('files 模式拒絕二進位與超大檔案', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-guard-test-'));
-  const jar = path.join(dir, 'mod.jar');
-  fs.writeFileSync(jar, 'x'.repeat(1000));
-  const r1 = run(['--files', jar, '--provider', 'mock']);
-  assert.notEqual(r1.status, 0, 'jar 應被拒絕');
+  const cls = path.join(dir, 'mod.class');
+  fs.writeFileSync(cls, 'x'.repeat(1000));
+  const r1 = run(['--files', cls, '--provider', 'mock']);
+  assert.notEqual(r1.status, 0, 'class 應被拒絕');
   assert.ok(/二進位|壓縮/.test(r1.stderr), r1.stderr);
   const big = path.join(dir, 'Huge.java');
   fs.writeFileSync(big, '// filler line\n'.repeat(600000)); // 約 8.4MB > 5MB 上限
@@ -260,6 +260,44 @@ test('大型原始碼檔（未超上限）可正常遷移', () => {
   const r = run(['--files', f, '--provider', 'mock']);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.ok(read(f).includes('Item.of(new Item.Props())'), '大檔已遷移');
+});
+
+test('jar 模式：解壓、遷移文字內容、重新打包，.class 不動', (t) => {
+  if (spawnSync('tar', ['--version']).status !== 0) {
+    t.skip('無 tar 可用');
+    return;
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-jar-test-'));
+  const src = path.join(dir, 'src');
+  fs.mkdirSync(path.join(src, 'com', 'example'), { recursive: true });
+  fs.writeFileSync(
+    path.join(src, 'fabric.mod.json'),
+    JSON.stringify({ schemaVersion: 1, id: 'm', depends: { minecraft: '~1.20.1' } }, null, 2)
+  );
+  fs.writeFileSync(
+    path.join(src, 'com', 'example', 'ItemClass.java'),
+    'package com.example;\nimport net.minecraft.item.Item;\npublic class ItemClass {\n    public static final Item X = new Item(new Item.Settings());\n}\n'
+  );
+  fs.writeFileSync(
+    path.join(src, 'com', 'example', 'ItemClass.class'),
+    'CLASSBLOB new Item(new Item.Settings()) Registry.register(Registries.ITEM,'
+  );
+  const jar = path.join(dir, 'mod.jar');
+  const mk = spawnSync('tar', ['--format', 'zip', '-cf', jar, '-C', src, '.'], { encoding: 'utf8' });
+  assert.equal(mk.status, 0, mk.stderr);
+  const r = run(['--files', jar, '--provider', 'mock']);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const outJar = path.join(dir, 'mod-26.2.jar');
+  assert.ok(fs.existsSync(outJar), '新 jar 產出');
+  const extractDir = jar + '.src';
+  assert.equal(JSON.parse(read(path.join(extractDir, 'fabric.mod.json'))).schemaVersion, 2, 'jar 內 fabric.mod.json 已遷移');
+  assert.ok(read(path.join(extractDir, 'com', 'example', 'ItemClass.java')).includes('Item.of(new Item.Props())'), 'jar 內原始碼已遷移');
+  assert.ok(read(path.join(extractDir, 'com', 'example', 'ItemClass.class')).includes('new Item(new Item.Settings())'), '.class 未被更動');
+  const verify = path.join(dir, 'verify');
+  fs.mkdirSync(verify);
+  const ex2 = spawnSync('tar', ['-xf', outJar, '-C', verify], { encoding: 'utf8' });
+  assert.equal(ex2.status, 0, ex2.stderr);
+  assert.equal(JSON.parse(read(path.join(verify, 'fabric.mod.json'))).schemaVersion, 2, '新 jar 內容已更新');
 });
 
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {
