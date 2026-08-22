@@ -300,6 +300,56 @@ test('jar 模式：解壓、遷移文字內容、重新打包，.class 不動', 
   assert.equal(JSON.parse(read(path.join(verify, 'fabric.mod.json'))).schemaVersion, 2, '新 jar 內容已更新');
 });
 
+test('跨載入器：mock 被擋下並提示使用真實模型', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-loader-mock-test-'));
+  const f = path.join(dir, 'Mod.java');
+  fs.writeFileSync(f, 'import net.minecraftforge.fml.common.Mod;\n@Mod("m")\npublic class Mod {}\n');
+  const r = run(['--files', f, '--provider', 'mock', '--loader-to', 'neoforge']);
+  assert.notEqual(r.status, 0, 'mock 跨載入器應失敗');
+  assert.ok(r.stderr.includes('跨載入器'), r.stderr);
+});
+
+test('跨載入器：偵測來源、解析路徑文檔並以 LLM 遷移（fake）', async () => {
+  let requests = 0;
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', (d) => (body += d));
+    req.on('end', () => {
+      requests++;
+      let user = '';
+      try {
+        const data = JSON.parse(body);
+        user = data.messages.find((m) => m.role === 'user').content;
+      } catch {}
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: user } }] }));
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-loader-fake-test-'));
+  const f = path.join(dir, 'Mod.java');
+  fs.writeFileSync(f, 'import net.minecraftforge.fml.common.Mod;\n@Mod("m")\npublic class Mod {}\n');
+  const cfg = path.join(dir, 'fake.json');
+  fs.writeFileSync(
+    cfg,
+    JSON.stringify({
+      provider: 'fake',
+      providers: { fake: { base_url: `http://127.0.0.1:${port}/v1`, model: 'fake-model' } },
+    })
+  );
+  const child = spawn(NODE, [MIGRATE, '--files', f, '--provider', 'fake', '--config', cfg, '--loader-to', 'neoforge'], { encoding: 'utf8' });
+  let output = '';
+  child.stdout.on('data', (d) => (output += d));
+  child.stderr.on('data', (d) => (output += d));
+  const code = await new Promise((resolve) => child.on('exit', resolve));
+  if (server.closeAllConnections) server.closeAllConnections();
+  server.close();
+  assert.equal(code, 0, output);
+  assert.ok(requests >= 1, `LLM 呼叫數（${requests}）`);
+  assert.ok(output.includes('forge_1.20.1_to_neoforge_26.2.md'), '解析到跨載入器路徑文檔');
+});
+
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {
   const mod = freshMod();
   const r = run([mod, '--provider', 'deepseek'], { env: { ...process.env, MC_MIGRATE_API_KEY: '' } });

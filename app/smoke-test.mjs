@@ -101,6 +101,7 @@ async function main() {
       noProjectInput: document.getElementById('project') === null,
       hasDropZone: !!document.getElementById('dropZone'),
       hasUpdateButton: !!document.getElementById('checkUpdate'),
+      hasLoaderSelect: !!document.getElementById('loaderTo'),
       footer: document.getElementById('footerText') ? document.getElementById('footerText').textContent : null
     })`
   );
@@ -131,6 +132,7 @@ async function main() {
     ui.result && JSON.parse(ui.result.value).noProjectInput &&
     ui.result && JSON.parse(ui.result.value).hasDropZone &&
     ui.result && JSON.parse(ui.result.value).hasUpdateButton &&
+    ui.result && JSON.parse(ui.result.value).hasLoaderSelect &&
     updDiag.result && JSON.parse(updDiag.result.value).ok === true &&
     /^\d+\.\d+\.\d+$/.test(JSON.parse(updDiag.result.value).latest || '');
 

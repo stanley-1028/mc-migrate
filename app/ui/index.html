@@ -41,8 +41,15 @@
         <span>加入 Java 文件或 .jar（可多選）</span>
       </div>
       <div class="file-list" id="fileList" hidden></div>
-      <div class="grid2">
+      <div class="grid3">
         <label>目標版本<input id="target" value="26.2"></label>
+        <label>目標載入器
+          <select id="loaderTo">
+            <option value="">不變（僅升版本）</option>
+            <option value="neoforge">NeoForge</option>
+            <option value="fabric">Fabric</option>
+          </select>
+        </label>
         <label>環境文檔<input id="env" placeholder="自動（mcenv/）"></label>
       </div>
 

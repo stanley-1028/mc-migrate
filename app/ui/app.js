@@ -140,6 +140,7 @@ function collectParams() {
   return {
     files: pickedFiles.length ? pickedFiles : null,
     target: $('target').value.trim() || '26.2',
+    loaderTo: $('loaderTo').value || null,
     env: $('env').value.trim() || null,
     provider: $('provider').value,
     model: $('model').value,
@@ -156,6 +157,7 @@ function collectParams() {
 async function init() {
   const s = await window.api.loadSettings();
   if (s.target) $('target').value = s.target;
+  if (s.loaderTo) $('loaderTo').value = s.loaderTo;
   if (s.provider) $('provider').value = s.provider;
   savedModel = s.model || '';
   if (s.apiKey) $('apiKey').value = s.apiKey;
@@ -210,6 +212,10 @@ $('run').onclick = async () => {
   }
   if (params.provider !== 'mock' && !params.apiKey) {
     showError('此供應商需要 API Key（僅存本機）。沒有 Key 可先選「Mock（離線演示）」。');
+    return;
+  }
+  if (params.provider === 'mock' && params.loaderTo) {
+    showError('跨載入器遷移需使用真實模型（Mock 僅支援同載入器的版本升級）。');
     return;
   }
   hideError();

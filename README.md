@@ -46,6 +46,7 @@ git 專案會自動在分支 `mc-migrate/<目標版本>` 執行；工作目錄�
 ## 擴充
 
 - 新 MC 版本：按 `mcenv/TEMPLATE.md` 新增 `<來源>_to_<目標>.md`。「遷移對照」表格第三欄標註「需人工確認」的列，遷移後會以 `MC-MIGRATE-REVIEW` 註解標記並列入報告。
+- 跨載入器遷移（Forge → NeoForge 等）：選「目標載入器」＋真實模型，文檔命名 `<來源載入器>_<來源版本>_to_<目標載入器>_<目標版本>.md`（範例：`mcenv/forge_1.20.1_to_neoforge_26.2.md`）；來源載入器由 import/建構檔自動偵測。mock 模式不支援跨載入器。
 - 新規則：在 `skills/` 放入 Markdown Skill（名稱/用途/適用時機/內容/使用限制）即被 Agent 採用。
 
 ## 桌面版（Windows exe）
