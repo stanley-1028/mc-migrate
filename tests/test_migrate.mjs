@@ -350,6 +350,28 @@ test('跨載入器：偵測來源、解析路徑文檔並以 LLM 遷移（fake�
   assert.ok(output.includes('forge_1.20.1_to_neoforge_26.2.md'), '解析到跨載入器路徑文檔');
 });
 
+test('跨載入器：由深層檔案向上偵測 build.gradle 中的載入器', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-loader-up-test-'));
+  fs.mkdirSync(path.join(dir, 'src', 'main', 'java', 'com', 'example'), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, 'build.gradle'),
+    'plugins {\n    id "fabric-loom" version "1.5-SNAPSHOT"\n}\n'
+  );
+  const f = path.join(dir, 'src', 'main', 'java', 'com', 'example', 'Plain.java');
+  fs.writeFileSync(f, 'public class Plain { public static final int X = 1; }\n');
+  const r = run(['--files', f, '--provider', 'mock', '--loader-to', 'neoforge']);
+  assert.notEqual(r.status, 0, 'mock 跨載入器應失敗');
+  assert.ok(r.stderr.includes('跨載入器'), 'mock 阻擋優先');
+  const cfg = path.join(dir, 'fake.json');
+  fs.writeFileSync(
+    cfg,
+    JSON.stringify({ provider: 'fake', providers: { fake: { base_url: 'http://127.0.0.1:9/v1', model: 'm' } } })
+  );
+  const r2 = run(['--files', f, '--provider', 'fake', '--config', cfg, '--loader-to', 'neoforge']);
+  assert.notEqual(r2.status, 0, '無 fabric→neoforge 文檔應失敗');
+  assert.ok(r2.stderr.includes('fabric_1.20.1_to_neoforge_26.2.md'), '向上偵測到 fabric（文檔路徑正確）');
+});
+
 test('跨載入器：偵測失敗給出指引，手動指定來源後成功', async () => {
   let requests = 0;
   const server = createServer((req, res) => {
