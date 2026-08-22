@@ -350,6 +350,53 @@ test('跨載入器：偵測來源、解析路徑文檔並以 LLM 遷移（fake�
   assert.ok(output.includes('forge_1.20.1_to_neoforge_26.2.md'), '解析到跨載入器路徑文檔');
 });
 
+test('跨載入器：偵測失敗給出指引，手動指定來源後成功', async () => {
+  let requests = 0;
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', (d) => (body += d));
+    req.on('end', () => {
+      requests++;
+      let user = '';
+      try {
+        const data = JSON.parse(body);
+        user = data.messages.find((m) => m.role === 'user').content;
+      } catch {}
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: user } }] }));
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-loader-from-test-'));
+  const f = path.join(dir, 'Plain.java');
+  fs.writeFileSync(f, 'public class Plain { public static final int X = 1; }\n');
+  const cfg = path.join(dir, 'fake.json');
+  fs.writeFileSync(
+    cfg,
+    JSON.stringify({
+      provider: 'fake',
+      providers: { fake: { base_url: `http://127.0.0.1:${port}/v1`, model: 'fake-model' } },
+    })
+  );
+  const runAsync = (args) => {
+    const child = spawn(NODE, [MIGRATE, ...args], { encoding: 'utf8' });
+    let output = '';
+    child.stdout.on('data', (d) => (output += d));
+    child.stderr.on('data', (d) => (output += d));
+    return new Promise((resolve) => child.on('exit', (code) => resolve({ code, output })));
+  };
+  const r1 = await runAsync(['--files', f, '--provider', 'fake', '--config', cfg, '--loader-to', 'neoforge']);
+  assert.notEqual(r1.code, 0, '無載入器痕跡應失敗');
+  assert.ok(r1.output.includes('無法偵測來源載入器'), r1.output);
+  assert.equal(requests, 0, '偵測失敗不應呼叫 LLM');
+  const r2 = await runAsync(['--files', f, '--provider', 'fake', '--config', cfg, '--loader-to', 'neoforge', '--loader-from', 'forge']);
+  assert.equal(r2.code, 0, r2.output);
+  assert.ok(r2.output.includes('forge_1.20.1_to_neoforge_26.2.md'), '手動指定來源後解析到路徑文檔');
+  if (server.closeAllConnections) server.closeAllConnections();
+  server.close();
+});
+
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {
   const mod = freshMod();
   const r = run([mod, '--provider', 'deepseek'], { env: { ...process.env, MC_MIGRATE_API_KEY: '' } });

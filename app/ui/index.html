@@ -41,8 +41,19 @@
         <span>加入 Java 文件或 .jar（可多選）</span>
       </div>
       <div class="file-list" id="fileList" hidden></div>
-      <div class="grid3">
+      <div class="grid2">
         <label>目標版本<input id="target" value="26.2"></label>
+        <label>環境文檔<input id="env" placeholder="自動（mcenv/）"></label>
+      </div>
+      <div class="grid2">
+        <label>來源載入器
+          <select id="loaderFrom">
+            <option value="">自動偵測</option>
+            <option value="forge">Forge</option>
+            <option value="fabric">Fabric</option>
+            <option value="neoforge">NeoForge</option>
+          </select>
+        </label>
         <label>目標載入器
           <select id="loaderTo">
             <option value="">不變（僅升版本）</option>
@@ -50,7 +61,6 @@
             <option value="fabric">Fabric</option>
           </select>
         </label>
-        <label>環境文檔<input id="env" placeholder="自動（mcenv/）"></label>
       </div>
 
       <details class="settings">

@@ -11,6 +11,7 @@ const USAGE = `Minecraft 模組版本升級 AI 工具
   --from-ver <版本>     來源版本（預設 1.20.1）
   --target <版本>       目標版本（預設 26.2）
   --loader-to <名稱>    跨載入器遷移：neoforge / fabric（預設不變）
+  --loader-from <名稱>  來源載入器：forge / fabric / neoforge（預設自動偵測）
   --env <路徑>          環境文檔（預設 mcenv/<from>_to_<target>.md）
   --provider <名稱>     供應商：deepseek/openai/ollama/anthropic/gemini/openrouter/mock
   --model <名稱>        模型（覆蓋設定檔）
@@ -29,6 +30,7 @@ function parseCli() {
       'from-ver': { type: 'string', default: '1.20.1' },
       target: { type: 'string', default: '26.2' },
       'loader-to': { type: 'string' },
+      'loader-from': { type: 'string' },
       env: { type: 'string' },
       provider: { type: 'string' },
       model: { type: 'string' },
@@ -68,6 +70,7 @@ runMigration(
     fromVer: opts['from-ver'],
     target: opts.target,
     loaderTo: opts['loader-to'] || null,
+    loaderFrom: opts['loader-from'] || null,
     env: opts.env,
     provider: opts.provider,
     model: opts.model,

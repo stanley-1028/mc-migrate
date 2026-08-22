@@ -141,6 +141,7 @@ function collectParams() {
     files: pickedFiles.length ? pickedFiles : null,
     target: $('target').value.trim() || '26.2',
     loaderTo: $('loaderTo').value || null,
+    loaderFrom: $('loaderFrom').value || null,
     env: $('env').value.trim() || null,
     provider: $('provider').value,
     model: $('model').value,
@@ -158,6 +159,7 @@ async function init() {
   const s = await window.api.loadSettings();
   if (s.target) $('target').value = s.target;
   if (s.loaderTo) $('loaderTo').value = s.loaderTo;
+  if (s.loaderFrom) $('loaderFrom').value = s.loaderFrom;
   if (s.provider) $('provider').value = s.provider;
   savedModel = s.model || '';
   if (s.apiKey) $('apiKey').value = s.apiKey;
