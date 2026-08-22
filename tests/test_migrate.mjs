@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { splitChunks } from '../lib/core.mjs';
+import { updateBatBody } from '../lib/updateBat.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIGRATE = path.join(ROOT, 'migrate.mjs');
@@ -417,6 +418,20 @@ test('跨載入器：偵測失敗給出指引，手動指定來源後成功', as
   assert.ok(r2.output.includes('forge_1.20.1_to_neoforge_26.2.md'), '手動指定來源後解析到路徑文檔');
   if (server.closeAllConnections) server.closeAllConnections();
   server.close();
+});
+
+test('更新批次：替換舊檔、正常結束、nostart 不啟動', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-updbat-test-'));
+  const old = path.join(dir, 'App.exe');
+  const newf = old + '.new';
+  fs.writeFileSync(old, 'OLD');
+  fs.writeFileSync(newf, 'NEW');
+  const bat = path.join(dir, 'App_update.bat');
+  fs.writeFileSync(bat, updateBatBody());
+  const r = spawnSync('cmd.exe', ['/c', bat, newf, old, 'nostart'], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(read(old), 'NEW', '舊檔已替換為新內容');
+  assert.ok(!fs.existsSync(newf), '.new 已移除');
 });
 
 test('自備 Key 檢查：真實供應商無 Key 時給出明確指引', () => {

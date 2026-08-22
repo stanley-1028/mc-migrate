@@ -5,6 +5,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runMigration, DEFAULT_PROVIDERS } from './lib/core.mjs';
+import { updateBatBody } from './lib/updateBat.mjs';
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO = 'stanley-1028/mc-migrate';
@@ -58,7 +59,17 @@ function createWindow() {
   win.loadFile(path.join(APP_DIR, 'ui', 'index.html'));
 }
 
+function cleanupStaleUpdateFiles() {
+  try {
+    const original = process.env.PORTABLE_EXECUTABLE_FILE;
+    if (!original) return;
+    const staleBat = original.replace(/\.exe$/i, '') + '_update.bat';
+    if (fs.existsSync(staleBat)) fs.rmSync(staleBat, { force: true });
+  } catch {}
+}
+
 app.whenReady().then(() => {
+  cleanupStaleUpdateFiles();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -187,12 +198,14 @@ ipcMain.handle('update:install', async (e, url) => {
       out.end();
     });
     const bat = original.replace(/\.exe$/i, '') + '_update.bat';
-    fs.writeFileSync(
-      bat,
-      '@echo off\r\ntimeout /t 2 >nul\r\nmove /y "' + tmp + '" "' + original + '" >nul\r\nstart "" "' + original + '"\r\ndel "%~f0"\r\n'
-    );
+    fs.writeFileSync(bat, updateBatBody());
     try {
-      spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      // 用 start 完全獨立啟動（不隨主程序退出被中斷）；腳本自行重試移動與重啟
+      spawn(
+        'cmd.exe',
+        ['/c', 'start', '', '/min', 'cmd', '/c', `"${bat}"`, `"${tmp}"`, `"${original}"`],
+        { detached: true, stdio: 'ignore', windowsHide: true }
+      ).unref();
     } catch (err) {
       return { ok: false, error: `下載完成，但自動重啟失敗（${(err && err.message) || err}）。請關閉軟體後，雙擊執行 ${bat} 完成更新` };
     }
