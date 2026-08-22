@@ -191,7 +191,11 @@ ipcMain.handle('update:install', async (e, url) => {
       bat,
       '@echo off\r\ntimeout /t 2 >nul\r\nmove /y "' + tmp + '" "' + original + '" >nul\r\nstart "" "' + original + '"\r\ndel "%~f0"\r\n'
     );
-    spawn(bat, [], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    try {
+      spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    } catch (err) {
+      return { ok: false, error: `下載完成，但自動重啟失敗（${(err && err.message) || err}）。請關閉軟體後，雙擊執行 ${bat} 完成更新` };
+    }
     setTimeout(() => app.quit(), 800);
     return { ok: true };
   } catch (err) {
