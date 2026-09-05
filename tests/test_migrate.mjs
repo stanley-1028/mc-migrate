@@ -301,6 +301,9 @@ test('jar 模式：解壓、遷移文字內容、重新打包，.class 不動', 
   const ex2 = spawnSync('tar', ['-xf', outJar, '-C', verify], { encoding: 'utf8' });
   assert.equal(ex2.status, 0, ex2.stderr);
   assert.equal(JSON.parse(read(path.join(verify, 'fabric.mod.json'))).schemaVersion, 2, '新 jar 內容已更新');
+  const entries = spawnSync('tar', ['-tf', outJar], { encoding: 'utf8' }).stdout.replace(/\r?\n/g, ' ').trim();
+  assert.ok(entries.includes('fabric.mod.json') && !entries.includes('./'), `條目無 ./ 前綴：${entries}`);
+  assert.ok(!entries.includes('.mc-migrate'), '工具產物未打包進 jar');
 });
 
 test('跨載入器：mock 被擋下並提示使用真實模型', () => {
