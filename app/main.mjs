@@ -5,7 +5,6 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runMigration, DEFAULT_PROVIDERS } from './lib/core.mjs';
-import { updateBatBody } from './lib/updateBat.mjs';
 import { listVersions } from './gen-env.mjs';
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -60,17 +59,34 @@ function createWindow() {
   win.loadFile(path.join(APP_DIR, 'ui', 'index.html'));
 }
 
-function cleanupStaleUpdateFiles() {
+// 啟動後清理：刪除更新流程留下的舊版本與殘留檔案（若刪除失敗則保留標記，下次啟動再試）
+function performPostUpgradeCleanup() {
   try {
     const original = process.env.PORTABLE_EXECUTABLE_FILE;
     if (!original) return;
-    const staleBat = original.replace(/\.exe$/i, '') + '_update.bat';
-    if (fs.existsSync(staleBat)) fs.rmSync(staleBat, { force: true });
+    const dir = path.dirname(original);
+    const marker = path.join(dir, '_upgrade_from.txt');
+    if (fs.existsSync(marker)) {
+      const oldExe = fs.readFileSync(marker, 'utf8').trim();
+      if (oldExe && fs.existsSync(oldExe) && path.resolve(oldExe) !== path.resolve(original)) {
+        try {
+          fs.rmSync(oldExe, { force: true });
+        } catch {}
+      }
+      if (!oldExe || !fs.existsSync(oldExe)) fs.rmSync(marker, { force: true });
+    }
+    for (const f of fs.readdirSync(dir)) {
+      if (f.endsWith('_update.bat') || f.endsWith('.new') || f.startsWith('.mc-migrate-download')) {
+        try {
+          fs.rmSync(path.join(dir, f), { force: true });
+        } catch {}
+      }
+    }
   } catch {}
 }
 
 app.whenReady().then(() => {
-  cleanupStaleUpdateFiles();
+  performPostUpgradeCleanup();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -183,18 +199,20 @@ ipcMain.handle('update:check', async () => {
   }
 });
 
-ipcMain.handle('update:install', async (e, url) => {
+ipcMain.handle('update:install', async (e, url, latestVersion) => {
   const original = process.env.PORTABLE_EXECUTABLE_FILE;
   if (!original) return { ok: false, error: '開發模式不支援自動更新，請手動下載新版 exe' };
   try {
-    const tmp = original + '.new';
+    const dir = path.dirname(original);
+    const newExe = path.join(dir, `MC-Migrate-${latestVersion || 'latest'}.exe`);
+    const tmpDl = path.join(dir, '.mc-migrate-download.tmp');
     const res = await fetch(url, {
       signal: AbortSignal.timeout(900000),
       headers: { 'user-agent': 'MC-Migrate' },
     });
     if (!res.ok) return { ok: false, error: `下載失敗 HTTP ${res.status}` };
     const total = Number(res.headers.get('content-length') || 0);
-    const out = fs.createWriteStream(tmp);
+    const out = fs.createWriteStream(tmpDl);
     let done = 0;
     let lastPct = -1;
     for await (const chunk of res.body) {
@@ -211,17 +229,14 @@ ipcMain.handle('update:install', async (e, url) => {
       out.on('error', reject);
       out.end();
     });
-    const bat = original.replace(/\.exe$/i, '') + '_update.bat';
-    fs.writeFileSync(bat, updateBatBody());
+    fs.renameSync(tmpDl, newExe);
+    // 記錄舊版路徑，供新版啟動後自動刪除
+    fs.writeFileSync(path.join(dir, '_upgrade_from.txt'), original);
+    // 直接啟動新版（正式檔名），並退出舊版
     try {
-      // 用 start 完全獨立啟動（不隨主程序退出被中斷）；腳本自行重試移動與重啟
-      spawn(
-        'cmd.exe',
-        ['/c', 'start', '', '/min', 'cmd', '/c', `"${bat}"`, `"${tmp}"`, `"${original}"`],
-        { detached: true, stdio: 'ignore', windowsHide: true }
-      ).unref();
+      spawn('cmd.exe', ['/c', 'start', '', `"${newExe}"`], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
     } catch (err) {
-      return { ok: false, error: `下載完成，但自動重啟失敗（${(err && err.message) || err}）。請關閉軟體後，雙擊執行 ${bat} 完成更新` };
+      return { ok: false, error: `下載完成，但啟動新版失敗（${(err && err.message) || err}）。請手動開啟 ${newExe}（舊版會在其啟動後自動刪除）` };
     }
     setTimeout(() => app.quit(), 800);
     return { ok: true };

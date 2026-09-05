@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   run: (params) => ipcRenderer.invoke('run', params),
   cancel: () => ipcRenderer.invoke('run:cancel'),
   updateCheck: () => ipcRenderer.invoke('update:check'),
-  updateInstall: (url) => ipcRenderer.invoke('update:install', url),
+  updateInstall: (url, version) => ipcRenderer.invoke('update:install', url, version),
   onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (e, data) => cb(data)),
   saveArtifact: (kind, filePath) => ipcRenderer.invoke('artifact:save', { kind, filePath }),
   onProgress: (cb) => ipcRenderer.on('progress', (e, data) => cb(data)),

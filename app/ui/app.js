@@ -316,14 +316,14 @@ $('checkUpdate').onclick = async () => {
     $('run').disabled = true;
     shownPcts.clear();
     logLine('log', `開始下載 v${r.latest}…`);
-    const inst = await window.api.updateInstall(r.url);
+    const inst = await window.api.updateInstall(r.url, r.latest);
     if (!inst.ok) {
       logLine('warn', `更新失敗：${inst.error}`);
       setStatus('', '待命');
       $('run').disabled = false;
       return;
     }
-    logLine('log', '更新已套用，正在重新啟動…');
+    logLine('log', '更新完成：正在以新版重新啟動（舊版將在新版啟動後自動刪除）…');
   } finally {
     $('checkUpdate').disabled = false;
   }

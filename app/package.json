@@ -1,6 +1,6 @@
 {
   "name": "mc-migrate-app",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Minecraft 模組版本升級 AI 工具（桌面版）",
   "type": "module",
   "main": "main.mjs",
