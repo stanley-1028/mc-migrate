@@ -1,0 +1,85 @@
+# Minecraft 26.2 版本環境文檔（人工範例）
+
+> **狀態**：人工撰寫範例（演示/測試用）。**內容為編寫示範，非官方資料**；官方文檔見 `1.20.1_to_26.2.md`（由 gen-env.mjs 依 Mojang 官方 manifest 自動生成）。
+> **資料來源**：Minecraft Wiki、FabricMC 官方文檔（示範欄位；實際版本請標註真實來源與連結）。
+> **最後更新**：2026-08-15
+
+## 版本基本資訊
+
+| 項目 | 值 |
+| --- | --- |
+| 版本號 | 26.2 |
+| 類型 | 正式版 |
+| 發布日期 | 2026-06-01（示範） |
+| 支援 Mod Loader | Fabric（loader ≥ 26.0）、NeoForge（示範） |
+| Java 要求 | Java 21 |
+| 推薦工具鏈 | Fabric Loom 1.x、Gradle 8.x |
+
+## Mapping 變更
+
+本次常見的 mapping 重命名（完整對照見「遷移對照」一節）：
+
+- `Item.Settings` → `Item.Props`（物品建構器類別）
+- `ServerWorldEvents.LOAD` → `ServerWorldEvents.WORLD_LOAD`（事件更名）
+- 註冊方法由泛型 `Registry.register(Registries.X, ...)` 拆分為類型化方法（見「註冊表變更」）。
+
+## 註冊表變更
+
+- `Registry.register(Registries.ITEM, id, item)` → `Registry.registerItem(id, item)`
+- `Registry.register(Registries.BLOCK, id, block)` → `Registry.registerBlock(id, block)`
+- 新增／移除／改名的註冊表條目：無（示範）。
+
+## API 破壞性變更
+
+- 物品建構：`new Item(new Item.Settings())` → `Item.of(new Item.Props())`。官方建議一律改用 `Item.of`，建構器類別同步更名為 `Props`。
+- `Registry.register` 泛型方法已移除，必須使用類型化方法（見「註冊表變更」）。
+
+## 事件系統變更
+
+- `ServerWorldEvents.LOAD` 更名為 `ServerWorldEvents.WORLD_LOAD`；回呼簽名不變，但觸發時機移至維度載入之後。
+- 風險：依賴「初始世界生成前」時機的行為會有差異，需人工確認。
+
+## 資料格式變更
+
+- 合成配方：`"result"` 欄位由字串改為物件 `{"item": "...", "count": n}`。
+- `fabric.mod.json`：`schemaVersion` 須為 2；`depends.minecraft` 須為 `>=26.2`。
+
+## 建構環境變更
+
+| 項目 | 1.20.1 | 26.2 |
+| --- | --- | --- |
+| minecraft_version | 1.20.1 | 26.2 |
+| yarn_mappings | 1.20.1+build.10 | 26.2+build.1 |
+| loader_version | 0.14.24 | 26.1 |
+| fabric_version | 0.90.0+1.20.1 | 0.120.0+26.2 |
+| Java | 17 | 21 |
+
+- `build.gradle`：`sourceCompatibility/targetCompatibility` 改為 `JavaVersion.VERSION_21`；`options.release` 改為 21。
+
+## 已知遷移陷阱
+
+- 部分模組在 `ServerWorldEvents.WORLD_LOAD` 註冊資料包內容，須確認新觸發時機仍正確（示範）。
+- 混用新舊 mapping 會導致運行期 `NoSuchMethodError`。
+- 遺漏 `fabric.mod.json` 的 `schemaVersion` 升級會使模組在 26.2 被拒絕載入。
+
+## 遷移對照（1.20.1 → 26.2）
+
+本節為本遷移路徑的直接變更對照表，Agent 逐檔套用。第三欄標註「需人工確認」的列，遷移後會以 `MC-MIGRATE-REVIEW` 註解標記並列入報告。
+
+| 舊 | 新 | 說明 |
+| --- | --- | --- |
+| `new Item(new Item.Settings())` | `Item.of(new Item.Props())` | 物品建構器 API 變更 |
+| `Registry.register(Registries.ITEM,` | `Registry.registerItem(` | 註冊表方法拆分 |
+| `Registry.register(Registries.BLOCK,` | `Registry.registerBlock(` | 註冊表方法拆分 |
+| `ServerWorldEvents.LOAD` | `ServerWorldEvents.WORLD_LOAD` | 事件更名（需人工確認：觸發時機移至維度載入後） |
+| `minecraft_version=1.20.1` | `minecraft_version=26.2` | 建構環境 |
+| `yarn_mappings=1.20.1+build.10` | `yarn_mappings=26.2+build.1` | 建構環境 |
+| `loader_version=0.14.24` | `loader_version=26.1` | 建構環境 |
+| `fabric_version=0.90.0+1.20.1` | `fabric_version=0.120.0+26.2` | 建構環境 |
+| `JavaVersion.VERSION_17` | `JavaVersion.VERSION_21` | 建構環境 |
+| `options.release = 17` | `options.release = 21` | 建構環境 |
+| `"schemaVersion": 1` | `"schemaVersion": 2` | fabric.mod.json 格式 |
+| `"minecraft": "~1.20.1"` | `"minecraft": ">=26.2"` | fabric.mod.json 依賴 |
+| `"fabricloader": ">=0.14.24"` | `"fabricloader": ">=26.0"` | fabric.mod.json 依賴 |
+| `"java": ">=17"` | `"java": ">=21"` | fabric.mod.json 依賴 |
+| `"result": "minecraft:cobblestone"` | `"result": {"item": "minecraft:cobblestone"}` | 合成配方格式 |

@@ -15,6 +15,8 @@ import { updateBatBody } from '../lib/updateBat.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIGRATE = path.join(ROOT, 'migrate.mjs');
 const SAMPLE = path.join(ROOT, 'samples', 'example-mod');
+// mock 文字對照需要「人工範例」文檔（官方文檔無重命名對照資料）
+const EXAMPLE_ENV = path.join(ROOT, 'mcenv', 'example_fabric_1.20.1_to_26.2.md');
 const NODE = process.execPath;
 const JAVA = 'src/main/java/com/example/mod/ExampleMod.java';
 const PROPS = 'gradle.properties';
@@ -56,7 +58,7 @@ function snapshot(root) {
 
 test('mock 端到端遷移：程式碼/建構/配方依環境文檔變更，語意保留', () => {
   const mod = freshMod();
-  const r = run([mod, '--provider', 'mock']);
+  const r = run([mod, '--provider', 'mock', '--env', EXAMPLE_ENV]);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const java = read(path.join(mod, JAVA));
   assert.ok(java.includes('Item.of(new Item.Props())'), '物品建構器遷移');
@@ -86,7 +88,7 @@ test('mock 端到端遷移：程式碼/建構/配方依環境文檔變更，語�
 test('--dry-run 不寫任何檔案', () => {
   const mod = freshMod();
   const before = snapshot(mod);
-  const r = run([mod, '--provider', 'mock', '--dry-run']);
+  const r = run([mod, '--provider', 'mock', '--dry-run', '--env', EXAMPLE_ENV]);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.ok(r.stdout.includes('未寫入'), 'dry-run 提示');
   assert.deepEqual(snapshot(mod), before, '檔案未變更');
@@ -95,7 +97,7 @@ test('--dry-run 不寫任何檔案', () => {
 
 test('中斷續跑：已完成檔案不重複處理，新檔案接續遷移', () => {
   const mod = freshMod();
-  assert.equal(run([mod, '--provider', 'mock']).status, 0);
+  assert.equal(run([mod, '--provider', 'mock', '--env', EXAMPLE_ENV]).status, 0);
   const after1 = snapshot(mod);
   const extraRel = 'src/main/java/com/example/mod/ExtraItem.java';
   const extra = path.join(mod, ...extraRel.split('/'));
@@ -105,7 +107,7 @@ test('中斷續跑：已完成檔案不重複處理，新檔案接續遷移', ()
     'package com.example.mod;\n\nimport net.minecraft.item.Item;\nimport net.minecraft.registry.Registries;\nimport net.minecraft.registry.Registry;\nimport net.minecraft.util.Identifier;\n\npublic class ExtraItem {\n    public static void init() {\n        Registry.register(Registries.ITEM, new Identifier("example-mod", "extra_item"), new Item(new Item.Settings()));\n    }\n}\n',
     'utf8'
   );
-  const r2 = run([mod, '--provider', 'mock']);
+  const r2 = run([mod, '--provider', 'mock', '--env', EXAMPLE_ENV]);
   assert.equal(r2.status, 0, r2.stdout + r2.stderr);
   const migrated = read(extra);
   assert.ok(migrated.includes('Registry.registerItem('), '新檔案接續遷移');
@@ -121,7 +123,7 @@ test('迭代修正：建構持續失敗，達上限後停止並在報告標示�
   const mod = freshMod();
   const checker = path.join(ROOT, 'tests', 'build_check.mjs');
   const cmd = `"${NODE}" "${checker}" .`;
-  const r = run([mod, '--provider', 'mock', '--max-iterations', '2', '--build-cmd', cmd]);
+  const r = run([mod, '--provider', 'mock', '--env', EXAMPLE_ENV, '--max-iterations', '2', '--build-cmd', cmd]);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const report = read(path.join(mod, '.mc-migrate', 'MIGRATION_REPORT.md'));
   assert.ok(report.includes('未解決'), '報告標示未解決問題');
@@ -140,7 +142,7 @@ test('git 安全：在新分支執行；工作目錄不乾淨時中止', (t) => 
   g(['config', 'user.email', 'test@test.invalid']);
   g(['add', '-A']);
   g(['commit', '-qm', 'init']);
-  const r = run([mod, '--provider', 'mock']);
+  const r = run([mod, '--provider', 'mock', '--env', EXAMPLE_ENV]);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.equal(g(['branch', '--show-current']).stdout.trim(), 'mc-migrate/26.2', '遷移在新分支執行');
   assert.ok(read(path.join(mod, JAVA)).includes('Registry.registerItem('), '分支上已完成遷移');
@@ -169,7 +171,7 @@ test('--files 直接遷移指定的 Java 文件', () => {
   );
   const originalB = 'package com.example;\n\npublic class CleanClass {\n}\n';
   fs.writeFileSync(b, originalB, 'utf8');
-  const r = run(['--files', a, b, '--provider', 'mock']);
+  const r = run(['--files', a, b, '--env', EXAMPLE_ENV, '--provider', 'mock']);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.ok(read(a).includes('Item.of(new Item.Props())'), '指定檔案已遷移');
   assert.equal(read(b), originalB, '未受影響的檔案保持原樣');
@@ -258,7 +260,7 @@ test('大型原始碼檔（未超上限）可正常遷移', () => {
     f,
     '// filler\n'.repeat(30000) + '    public static final Item X = new Item(new Item.Settings());\n'
   );
-  const r = run(['--files', f, '--provider', 'mock']);
+  const r = run(['--files', f, '--env', EXAMPLE_ENV, '--provider', 'mock']);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.ok(read(f).includes('Item.of(new Item.Props())'), '大檔已遷移');
 });
@@ -286,7 +288,7 @@ test('jar 模式：解壓、遷移文字內容、重新打包，.class 不動', 
   const jar = path.join(dir, 'mod.jar');
   const mk = spawnSync('tar', ['--format', 'zip', '-cf', jar, '-C', src, '.'], { encoding: 'utf8' });
   assert.equal(mk.status, 0, mk.stderr);
-  const r = run(['--files', jar, '--provider', 'mock']);
+  const r = run(['--files', jar, '--env', EXAMPLE_ENV, '--provider', 'mock']);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const outJar = path.join(dir, 'mod-26.2.jar');
   assert.ok(fs.existsSync(outJar), '新 jar 產出');

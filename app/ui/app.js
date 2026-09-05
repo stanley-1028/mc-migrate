@@ -173,6 +173,16 @@ async function init() {
   if (s.apiKey) loadModels();
   const ver = await window.api.getVersion();
   $('footerText').textContent = `MC-Migrate v${ver} · API Key 僅存本機、不隨專案提交 · 遷移前請確認 git 狀態`;
+  window.api.listVersions().then((r) => {
+    if (!r.ok) return;
+    const dl = $('versionList');
+    for (const v of r.versions) {
+      const o = document.createElement('option');
+      o.value = v.id;
+      o.label = `${v.id}（${v.type}）`;
+      dl.appendChild(o);
+    }
+  });
 }
 
 // 進度監聽最先註冊（不放在 init 的 await 之後，避免遺失早期事件）

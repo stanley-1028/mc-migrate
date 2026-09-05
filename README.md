@@ -43,6 +43,15 @@ node migrate.mjs <模組專案路徑> --provider deepseek
 
 git 專案會自動在分支 `mc-migrate/<目標版本>` 執行；工作目錄不乾淨時中止（`--force` 可覆寫）。
 
+## 環境文檔（官方資料驅動）
+
+- 預設文檔（`mcenv/1.20.1_to_26.2.md`）由 Mojang **官方版本 manifest** 自動生成：版本資訊、類型、發布日、官方 changelog、mapping 提供狀況——只含官方可機器取得的資訊，不編造。
+- 目標版本可填**任意官方版本**（介面提供全部版本下拉）：文檔不存在時自動向 Mojang 官方 API 生成到 `~/.mc-migrate/mcenv/`。
+- 官方無機器可取得的（跨版本重命名、註冊表、事件、資料格式變更）：文檔標註官方 changelog 連結，由人工補強（誠實原則：寧缺勿編）。
+- 手動生成：`node gen-env.mjs 1.20.1 1.21.4 --dir mcenv`。
+- `mcenv/example_fabric_1.20.1_to_26.2.md` 為人工範例（演示/測試用，非官方）。
+- 跨載入器文檔（如 `mcenv/forge_1.20.1_to_neoforge_26.2.md`）為人工範例：Mojang 不提供載入器 API 文件。
+
 ## 擴充
 
 - 新 MC 版本：按 `mcenv/TEMPLATE.md` 新增 `<來源>_to_<目標>.md`。「遷移對照」表格第三欄標註「需人工確認」的列，遷移後會以 `MC-MIGRATE-REVIEW` 註解標記並列入報告。

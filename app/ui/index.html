@@ -42,8 +42,9 @@
       </div>
       <div class="file-list" id="fileList" hidden></div>
       <div class="grid2">
-        <label>目標版本<input id="target" value="26.2"></label>
-        <label>環境文檔<input id="env" placeholder="自動（mcenv/）"></label>
+        <label>目標版本<input id="target" value="26.2" list="versionList" placeholder="官方版本，如 1.21.4"></label>
+        <datalist id="versionList"></datalist>
+        <label>環境文檔<input id="env" placeholder="自動（官方生成）"></label>
       </div>
       <div class="grid2">
         <label>來源載入器

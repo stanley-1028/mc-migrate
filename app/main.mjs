@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runMigration, DEFAULT_PROVIDERS } from './lib/core.mjs';
 import { updateBatBody } from './lib/updateBat.mjs';
+import { listVersions } from './gen-env.mjs';
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO = 'stanley-1028/mc-migrate';
@@ -94,6 +95,15 @@ ipcMain.handle('file:pick', async () => {
 
 ipcMain.handle('app:version', () => app.getVersion());
 
+ipcMain.handle('versions:list', async () => {
+  try {
+    const versions = await listVersions();
+    return { ok: true, versions };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
 ipcMain.handle('models:list', async (e, { provider, apiKey }) => {
   const prov = DEFAULT_PROVIDERS[provider] || {};
   const base = (prov.base_url || '').replace(/\/$/, '');
@@ -124,6 +134,10 @@ ipcMain.handle('run', async (e, params) => {
   currentRun = controller;
   try {
     params.fromVer = '1.20.1';
+    // 允許只填文檔檔名（從打包內 mcenv/ 解析）
+    if (params.env && !/[/\\]/.test(params.env)) {
+      params.env = path.join(app.getAppPath(), 'mcenv', params.env);
+    }
     saveSettings(params);
     const send = (type, text) => {
       if (win && !win.isDestroyed()) win.webContents.send('progress', { type, text });

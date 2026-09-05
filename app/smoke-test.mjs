@@ -82,7 +82,7 @@ async function main() {
 
   const filesJs = JSON.stringify([javaA, javaB]);
   const runRes = await evalJs(
-    `window.api.run({ files: ${filesJs}, provider: 'mock', target: '26.2' }).then(r => r.ok ? 'ok' : 'ERR:' + r.error)`,
+    `window.api.run({ files: ${filesJs}, provider: 'mock', target: '26.2', env: 'example_fabric_1.20.1_to_26.2.md' }).then(r => r.ok ? 'ok' : 'ERR:' + r.error)`,
     true
   );
   console.log(`遷移呼叫結果：${runRes.result && runRes.result.value}`);

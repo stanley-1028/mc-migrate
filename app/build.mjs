@@ -11,3 +11,5 @@ for (const name of ['lib', 'mcenv', 'skills']) {
   fs.cpSync(path.join(ROOT, name), path.join(APP, name), { recursive: true });
   console.log(`已同步 app/${name}/`);
 }
+fs.copyFileSync(path.join(ROOT, 'gen-env.mjs'), path.join(APP, 'gen-env.mjs'));
+console.log('已同步 app/gen-env.mjs');
